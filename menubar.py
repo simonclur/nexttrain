@@ -126,6 +126,15 @@ class App(rumps.App):
         mins = (now.hour * 60 + now.minute) - (h * 60 + m)
         return 0 <= mins <= self.cfg.get("alert_window_minutes", 45)
 
+    def default_index(self, trains, label, now):
+        """First upcoming train inside the commute window (next occurrence); falls back to the next train."""
+        lo, hi = self.cfg.get("commute_windows", {"work": ["05:00", "09:00"], "home": ["16:00", "20:00"]})[label]
+        days = self.cfg["alerts"][label]["days"]
+        for i, t in enumerate(trains):
+            if not t["departed"] and t["time"].weekday() in days and lo <= f"{t['time']:%H:%M}" <= hi:
+                return i
+        return next((i for i, t in enumerate(trains) if not t["departed"]), len(trains))
+
     def scroll(self, label, first):
         # absolute window start -> offset relative to the first upcoming train; no refresh so the open menu stays put
         def cb(start):
@@ -226,7 +235,7 @@ class App(rumps.App):
             if not up:
                 items.append(rumps.MenuItem("   no trains found"))
             trains_all = r["trains"]
-            first = next((i for i, t in enumerate(trains_all) if not t["departed"]), len(trains_all))
+            first = self.default_index(trains_all, label, now)
             size = self.cfg.get("trains_shown", 3)
             start = max(0, min(first + self.offset[label], max(0, len(trains_all) - size)))
             if trains_all:

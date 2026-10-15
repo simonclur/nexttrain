@@ -5,6 +5,7 @@
   "use_ip_location": false,
   "candidate_stations": 3,
   "trains_shown": 3,
+  "commute_windows": { "work": ["05:00", "09:00"], "home": ["16:00", "20:00"] },
   "refresh_seconds": 60,
   "alerts": {
     "work": { "time": "06:30", "days": [0, 1, 2, 3, 4] },
