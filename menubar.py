@@ -3,6 +3,9 @@ import json, os, subprocess, threading
 from datetime import datetime
 
 import rumps
+from AppKit import (NSAttributedString, NSColor, NSFont, NSFontAttributeName, NSForegroundColorAttributeName,
+                    NSMakeRect, NSView)
+from PyObjCTools import AppHelper
 
 import core
 import sound
@@ -25,6 +28,67 @@ def colour(item, name):
 
 def grey(item):
     colour(item, "grey")
+
+
+class TrainListView(NSView):
+    """Menu-embedded list showing `size` trains; the mouse wheel scrolls it and a click selects a row."""
+    ROW_H = 22
+    WIDTH = 560
+
+    def isFlipped(self):
+        return True
+
+    def drawRect_(self, rect):
+        for i in range(self.size):
+            idx = self.start + i
+            if idx >= len(self.trains):
+                break
+            t = self.trains[idx]
+            mark = "✓ " if t["trip_id"] == self.selected else "   "
+            colr = NSColor.secondaryLabelColor() if t["departed"] else NSColor.labelColor()
+            attrs = {NSForegroundColorAttributeName: colr, NSFontAttributeName: NSFont.menuFontOfSize_(14)}
+            NSAttributedString.alloc().initWithString_attributes_(
+                mark + core.fmt_train(t, self.now), attrs).drawAtPoint_((14, 3 + i * self.ROW_H))
+        hint = ("▲" if self.start > 0 else " ") + ("▼" if self.start + self.size < len(self.trains) else " ")
+        NSAttributedString.alloc().initWithString_attributes_(hint, {
+            NSForegroundColorAttributeName: NSColor.tertiaryLabelColor(),
+            NSFontAttributeName: NSFont.menuFontOfSize_(11)}).drawAtPoint_((self.WIDTH - 36, 3))
+
+    def scrollWheel_(self, event):
+        precise = event.hasPreciseScrollingDeltas()
+        self.acc += event.scrollingDeltaY()
+        step = 12.0 if precise else 1.0
+        new = self.start
+        while abs(self.acc) >= step:
+            new += -1 if self.acc > 0 else 1  # content follows the fingers/wheel
+            self.acc -= step if self.acc > 0 else -step
+        new = max(0, min(new, max(0, len(self.trains) - self.size)))
+        if new != self.start:
+            self.start = new
+            self.on_scroll(new)
+            self.setNeedsDisplay_(True)
+
+    def mouseUp_(self, event):
+        p = self.convertPoint_fromView_(event.locationInWindow(), None)
+        i = int((p.y - 3) // self.ROW_H)
+        idx = self.start + i
+        if 0 <= i < self.size and idx < len(self.trains):
+            train = self.trains[idx]
+            item = self.enclosingMenuItem()
+            if item is not None and item.menu() is not None:
+                item.menu().cancelTracking()
+            AppHelper.callLater(0.05, self.on_pick, train)
+
+    def acceptsFirstMouse_(self, event):
+        return True
+
+
+def make_list_view(trains, start, size, now, selected, on_scroll, on_pick):
+    v = TrainListView.alloc().initWithFrame_(
+        NSMakeRect(0, 0, TrainListView.WIDTH, TrainListView.ROW_H * size + 6))
+    v.trains, v.start, v.size, v.now, v.selected = trains, start, size, now, selected
+    v.on_scroll, v.on_pick, v.acc = on_scroll, on_pick, 0.0
+    return v
 
 
 class App(rumps.App):
@@ -59,10 +123,10 @@ class App(rumps.App):
         mins = (now.hour * 60 + now.minute) - (h * 60 + m)
         return 0 <= mins <= self.cfg.get("alert_window_minutes", 45)
 
-    def scroll(self, label, offset):
-        def cb(_):
-            self.offset[label] = offset
-            self.refresh(None)
+    def scroll(self, label, first):
+        # absolute window start -> offset relative to the first upcoming train; no refresh so the open menu stays put
+        def cb(start):
+            self.offset[label] = start - first
         return cb
 
     def toggle_active(self, _):
@@ -153,45 +217,41 @@ class App(rumps.App):
             first = next((i for i, t in enumerate(trains_all) if not t["departed"]), len(trains_all))
             size = self.cfg.get("trains_shown", 3)
             start = max(0, min(first + self.offset[label], max(0, len(trains_all) - size)))
-            if start > 0:
-                items.append(rumps.MenuItem("   ▲ Earlier", callback=self.scroll(label, start - size - first)))
-            for t in trains_all[start:start + size]:
-                mi = rumps.MenuItem("   " + core.fmt_train(t, now), callback=self.pick_train(label, r, t))
-                mi.state = 1 if tgt and tgt["trip_id"] == t["trip_id"] else 0
-                if t["departed"]:
-                    grey(mi)
-                items.append(mi)
-                if tgt and tgt["trip_id"] == t["trip_id"] and tgt.get("midnight"):
-                    try:
-                        stops = core.trip_stops(core.connect(), tgt["trip_id"], 0, tgt["dest_seq"], tgt["midnight"])
-                    except Exception:
-                        stops = []
-                    # current = last stop already reached; boarding station is blue regardless
-                    cur = max((i for i, s in enumerate(stops) if s[1] <= now), default=None)
-                    for i, (sname, stime, plat) in enumerate(stops):
-                        pl = f"  pl.{plat}" if plat else ""
-                        mark = "●" if sname in (tgt["origin"], tgt["dest"]) else "│"
-                        si = rumps.MenuItem(f"        {mark} {stime:%H:%M}  {sname}{pl}", callback=lambda _: None)
-                        if sname == tgt["origin"]:
-                            colour(si, "blue")
-                        elif i == cur:
-                            colour(si, "green")
-                        elif stime <= now:
-                            colour(si, "grey")
-                        else:
-                            colour(si, "white")
-                        items.append(si)
-            if start + size < len(trains_all):
-                items.append(rumps.MenuItem("   ▼ Later", callback=self.scroll(label, start + size - first)))
-            if start != first:
-                items.append(rumps.MenuItem("   ⟲ Next trains", callback=self.scroll(label, 0)))
+            if trains_all:
+                vi = rumps.MenuItem("")
+                vi._menuitem.setView_(make_list_view(
+                    trains_all, start, size, now, tgt["trip_id"] if tgt else None,
+                    on_scroll=self.scroll(label, first),
+                    on_pick=lambda t, label=label, r=r: self.pick_train(label, r, t)(None)))
+                items.append(vi)
+            if tgt and tgt.get("midnight") and any(t["trip_id"] == tgt["trip_id"] for t in trains_all):
+                items.append(rumps.MenuItem("   Stops for selected train:", callback=None))
+                try:
+                    stops = core.trip_stops(core.connect(), tgt["trip_id"], 0, tgt["dest_seq"], tgt["midnight"])
+                except Exception:
+                    stops = []
+                # current = last stop already reached; boarding station is blue regardless
+                cur = max((i for i, s in enumerate(stops) if s[1] <= now), default=None)
+                for i, (sname, stime, plat) in enumerate(stops):
+                    pl = f"  pl.{plat}" if plat else ""
+                    mark = "●" if sname in (tgt["origin"], tgt["dest"]) else "│"
+                    si = rumps.MenuItem(f"        {mark} {stime:%H:%M}  {sname}{pl}", callback=lambda _: None)
+                    if sname == tgt["origin"]:
+                        colour(si, "blue")
+                    elif i == cur:
+                        colour(si, "green")
+                    elif stime <= now:
+                        colour(si, "grey")
+                    else:
+                        colour(si, "white")
+                    items.append(si)
             items.append(None)
             if active and self.in_alert_window(label, now) and up:
                 last = self.last_alert.get(label)
                 if not last or (now - last).total_seconds() >= self.cfg.get("alert_repeat_minutes", 10) * 60:
                     self.last_alert[label] = now
                     notify(f"{name}: {r['origin']} → {r['destination']}", core.fmt_train(up[0], now))
-        items.append(rumps.MenuItem("Select a train to get a 15-min reminder (✓ = selected)"))
+        items.append(rumps.MenuItem("Scroll the train list with the mouse wheel; click a train to select it (✓)"))
         items.append(rumps.MenuItem(f"Location: {snap['location_source']}"))
         items.append(rumps.MenuItem("Refresh", callback=self.refresh))
         items.append(rumps.MenuItem("Edit config…", callback=lambda _: subprocess.run(["open", "-t", core.CONFIG])))
