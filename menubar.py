@@ -45,8 +45,11 @@ class TrainListView(NSView):
                 break
             t = self.trains[idx]
             mark = "✓ " if t["trip_id"] == self.selected else "   "
-            colr = NSColor.secondaryLabelColor() if t["departed"] else NSColor.labelColor()
-            attrs = {NSForegroundColorAttributeName: colr, NSFontAttributeName: NSFont.menuFontOfSize_(14)}
+            sel = t["trip_id"] == self.selected
+            colr = (NSColor.colorWithSRGBRed_green_blue_alpha_(0.0, 1.0, 0.25, 1.0) if sel
+                    else NSColor.secondaryLabelColor() if t["departed"] else NSColor.labelColor())
+            font = NSFont.boldSystemFontOfSize_(14) if sel else NSFont.menuFontOfSize_(14)
+            attrs = {NSForegroundColorAttributeName: colr, NSFontAttributeName: font}
             NSAttributedString.alloc().initWithString_attributes_(
                 mark + core.fmt_train(t, self.now), attrs).drawAtPoint_((14, 3 + i * self.ROW_H))
         hint = ("▲" if self.start > 0 else " ") + ("▼" if self.start + self.size < len(self.trains) else " ")
@@ -79,15 +82,22 @@ class TrainListView(NSView):
                 item.menu().cancelTracking()
             AppHelper.callLater(0.05, self.on_pick, train)
 
+    def viewDidMoveToWindow(self):
+        # each time the menu opens, snap back to the window centred on the selected train
+        if self.window() is not None and self.on_open:
+            self.start = self.on_open()
+            self.acc = 0.0
+            self.setNeedsDisplay_(True)
+
     def acceptsFirstMouse_(self, event):
         return True
 
 
-def make_list_view(trains, start, size, now, selected, on_scroll, on_pick):
+def make_list_view(trains, start, size, now, selected, on_scroll, on_pick, on_open=None):
     v = TrainListView.alloc().initWithFrame_(
         NSMakeRect(0, 0, TrainListView.WIDTH, TrainListView.ROW_H * size + 6))
     v.trains, v.start, v.size, v.now, v.selected = trains, start, size, now, selected
-    v.on_scroll, v.on_pick, v.acc = on_scroll, on_pick, 0.0
+    v.on_scroll, v.on_pick, v.acc, v.on_open = on_scroll, on_pick, 0.0, on_open
     return v
 
 
@@ -139,6 +149,12 @@ class App(rumps.App):
         # absolute window start -> offset relative to the first upcoming train; no refresh so the open menu stays put
         def cb(start):
             self.offset[label] = start - first
+        return cb
+
+    def reopen(self, label, base, hi_start):
+        def cb():
+            self.offset[label] = 0
+            return max(0, min(base, hi_start))
         return cb
 
     def set_where(self, key):
@@ -246,12 +262,16 @@ class App(rumps.App):
             trains_all = r["trains"]
             first = self.default_index(trains_all, label, now)
             size = self.cfg.get("trains_shown", 3)
-            start = max(0, min(first + self.offset[label], max(0, len(trains_all) - size)))
+            hi_start = max(0, len(trains_all) - size)
+            sel_idx = next((i for i, t in enumerate(trains_all) if tgt and t["trip_id"] == tgt["trip_id"]), None)
+            base = max(0, min(sel_idx - size // 2, hi_start)) if sel_idx is not None else first
+            start = max(0, min(base + self.offset[label], hi_start))
             if trains_all:
                 vi = rumps.MenuItem("")
                 vi._menuitem.setView_(make_list_view(
                     trains_all, start, size, now, tgt["trip_id"] if tgt else None,
-                    on_scroll=self.scroll(label, first),
+                    on_scroll=self.scroll(label, base),
+                    on_open=self.reopen(label, base, hi_start),
                     on_pick=lambda t, label=label, r=r: self.pick_train(label, r, t)(None)))
                 items.append(vi)
             if tgt and tgt.get("midnight") and any(t["trip_id"] == tgt["trip_id"] for t in trains_all):
