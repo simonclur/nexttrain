@@ -2,9 +2,8 @@
 import csv, io, os, sqlite3, sys, urllib.request, zipfile
 
 URL = "https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip"
-HERE = os.path.dirname(os.path.abspath(__file__))
-ZIP = os.path.join(HERE, "data", "SEQ_GTFS.zip")
-DB = os.path.join(HERE, "data", "rail.db")
+from paths import DATA, DB
+ZIP = os.path.join(DATA, "SEQ_GTFS.zip")
 
 
 def rows(z, name):
@@ -33,9 +32,10 @@ def main():
         p = stops[stop_id].get("parent_station") or ""
         return p if p in stops else stop_id
 
-    if os.path.exists(DB):
-        os.remove(DB)
-    db = sqlite3.connect(DB)
+    tmp = DB + ".new"
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    db = sqlite3.connect(tmp)
     db.executescript("""
     CREATE TABLE stations(id TEXT PRIMARY KEY, name TEXT, lat REAL, lon REAL);
     CREATE TABLE trips(trip_id TEXT PRIMARY KEY, service_id TEXT, headsign TEXT, route TEXT);
@@ -77,6 +77,8 @@ def main():
                        (c["service_id"], c["date"], int(c["exception_type"])))
     db.commit()
     n = db.execute("SELECT COUNT(*) FROM stations").fetchone()[0]
+    db.close()
+    os.replace(tmp, DB)
     print(f"Done: {n} stations -> {DB}")
 
 

@@ -1,0 +1,33 @@
+name: Build installers
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt pyinstaller
+      - run: >
+          pyinstaller --noconfirm --windowed --name NextTrain
+          --add-data "config.json;." --hidden-import build_data
+          --collect-all tzdata app.py
+      - run: Compress-Archive -Path dist/NextTrain -DestinationPath NextTrain-windows.zip
+      - uses: actions/upload-artifact@v4
+        with: { name: NextTrain-windows, path: NextTrain-windows.zip }
+
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python -m venv .venv
+      - run: ./build_mac.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: NextTrain-mac, path: dist/NextTrain.dmg }

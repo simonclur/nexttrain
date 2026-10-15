@@ -1,7 +1,10 @@
 """Synthesises an accelerating steam-train chuff followed by a chime whistle, and plays it with afplay."""
-import math, os, random, struct, subprocess, wave
+import math, os, random, struct, wave
 
-PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "train.wav")
+from paths import DATA
+import osutil
+
+PATH = os.path.join(DATA, "train.wav")
 RATE = 22050
 
 
@@ -65,7 +68,7 @@ def build():
 def play():
     if not os.path.exists(PATH):
         build()
-    subprocess.Popen(["afplay", PATH])
+    osutil.play_wav(PATH)
 
 
 if __name__ == "__main__":

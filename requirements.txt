@@ -1,3 +1,6 @@
-rumps
+rumps; sys_platform == "darwin"
+pyobjc-framework-CoreLocation; sys_platform == "darwin"
+pystray; sys_platform == "win32"
+pillow>=10.1; sys_platform == "win32"
 gtfs-realtime-bindings
-pyobjc-framework-CoreLocation
+tzdata

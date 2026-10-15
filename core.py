@@ -1,11 +1,10 @@
 """Core logic: location, nearest station, next trains to a destination (with realtime delays)."""
-import json, math, os, sqlite3, urllib.request
+import json, math, os, sqlite3, sys, time, urllib.request
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-DB = os.path.join(HERE, "data", "rail.db")
-CONFIG = os.path.join(HERE, "config.json")
+import paths
+from paths import DB, CONFIG
 RT_URL = "https://gtfsrt.api.translink.com.au/api/realtime/SEQ/TripUpdates"
 TZ = ZoneInfo("Australia/Brisbane")
 
@@ -28,6 +27,8 @@ WAIT_FOR_FIX = False  # only the CLI may spin the run loop; the menu-bar app mus
 
 def _gps():
     global _mgr
+    if sys.platform != "darwin":
+        return None
     import CoreLocation
     from Foundation import NSRunLoop, NSDate
     if _mgr is None:
@@ -66,9 +67,21 @@ def get_location(cfg):
     return fb["lat"], fb["lon"], "fallback"
 
 
+def ensure_data(max_age_days=7):
+    """Build the rail timetable on first run and refresh it weekly (keeps the old copy if the download fails)."""
+    have = os.path.exists(DB)
+    if have and time.time() - os.path.getmtime(DB) < max_age_days * 86400:
+        return
+    try:
+        import build_data
+        build_data.main()
+    except Exception:
+        if not have:
+            raise
+
+
 def connect():
-    if not os.path.exists(DB):
-        raise SystemExit("No data yet. Run: .venv/bin/python build_data.py")
+    ensure_data()
     return sqlite3.connect(DB)
 
 

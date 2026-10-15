@@ -1,5 +1,5 @@
 """macOS menu-bar app: next trains home/work, play/pause alerting, pick a train for a 15-min reminder + train sound."""
-import json, os, subprocess, threading
+import threading
 from datetime import datetime
 
 import rumps
@@ -8,14 +8,8 @@ from AppKit import (NSAttributedString, NSColor, NSFont, NSFontAttributeName, NS
 from PyObjCTools import AppHelper
 
 import core
-import sound
-
-STATE = os.path.join(core.HERE, "data", "state.json")
-
-
-def notify(title, msg):
-    msg, title = msg.replace('"', "'"), title.replace('"', "'")
-    subprocess.run(["osascript", "-e", f'display notification "{msg}" with title "{title}"'])
+import osutil
+from engine import Engine
 
 
 def colour(item, name):
@@ -101,49 +95,17 @@ def make_list_view(trains, start, size, now, selected, on_scroll, on_pick, on_op
     return v
 
 
-class App(rumps.App):
+class App(Engine, rumps.App):
     def __init__(self):
         super().__init__("🚆", quit_button=None)
-        self.cfg = core.load_config()
-        self.last_alert = {}
+        self.init_engine()
         self.lock = threading.Lock()
         self.offset = {"work": 0, "home": 0}  # rows scrolled from the first upcoming train
-        self.state = {"active": True, "targets": {}}  # targets[label]: {trip_id, time(iso), origin, dest, headsign, last_min, ...}
-        try:
-            with open(STATE) as f:
-                self.state.update(json.load(f))
-        except Exception:
-            pass
-        old = self.state.pop("target", None)  # migrate the single-target format
-        if old:
-            self.state["targets"][old["label"]] = old
         self.menu = ["Loading…"]
         self.timer = rumps.Timer(self.refresh, 30)
         self.timer.start()
         self.first = rumps.Timer(self.first_refresh, 1)
         self.first.start()
-
-    def save(self):
-        os.makedirs(os.path.dirname(STATE), exist_ok=True)
-        with open(STATE, "w") as f:
-            json.dump(self.state, f)
-
-    def in_alert_window(self, label, now):
-        a = self.cfg["alerts"][label]
-        if now.weekday() not in a["days"]:
-            return False
-        h, m = map(int, a["time"].split(":"))
-        mins = (now.hour * 60 + now.minute) - (h * 60 + m)
-        return 0 <= mins <= self.cfg.get("alert_window_minutes", 45)
-
-    def default_index(self, trains, label, now):
-        """First upcoming train inside the commute window (next occurrence); falls back to the next train."""
-        lo, hi = self.cfg.get("commute_windows", {"work": ["05:00", "09:00"], "home": ["16:00", "20:00"]})[label]
-        days = self.cfg["alerts"][label]["days"]
-        for i, t in enumerate(trains):
-            if not t["departed"] and t["time"].weekday() in days and lo <= f"{t['time']:%H:%M}" <= hi:
-                return i
-        return next((i for i, t in enumerate(trains) if not t["departed"]), len(trains))
 
     def scroll(self, label, first):
         # absolute window start -> offset relative to the first upcoming train; no refresh so the open menu stays put
@@ -165,56 +127,14 @@ class App(rumps.App):
         return cb
 
     def toggle_active(self, _):
-        self.state["active"] = not self.state["active"]
-        self.save()
+        self.toggle_pause()
         self.refresh(None)
 
     def pick_train(self, label, route, train):
         def cb(_):
-            tgt = self.state["targets"].get(label)
-            if tgt and tgt["trip_id"] == train["trip_id"]:
-                del self.state["targets"][label]
-            else:
-                self.state["targets"][label] = {
-                    "trip_id": train["trip_id"], "time": train["time"].isoformat(),
-                                        "origin": route["origin"], "dest": route["destination"],
-                                        "headsign": train["headsign"], "last_min": None, "arr_alerted": False,
-                                        "dest_seq": train["dest_seq"], "dest_stop": train["dest_stop"],
-                                        "arrive_sched": train["arrive_sched"], "arrive": train["arrive"].isoformat(),
-                                        "seq": train["seq"], "midnight": train["midnight"]}
-                self.state["active"] = True
-            self.save()
+            self.toggle_train(label, route, train)
             self.refresh(None)
         return cb
-
-    def check_targets(self, snap, now):
-        for label in list(self.state["targets"]):
-            self.check_target(snap, now, label)
-        self.save()
-
-    def check_target(self, snap, now, label):
-        tgt = self.state["targets"][label]
-        # refresh the live time if the trip is still in the snapshot
-        for t in snap["routes"][label]["trains"]:
-            if t["trip_id"] == tgt["trip_id"]:
-                tgt["time"] = t["time"].isoformat()
-        when = datetime.fromisoformat(tgt["time"])
-        mins = (when - now).total_seconds() / 60
-        arrive = core.live_arrival(tgt["trip_id"], tgt["dest_seq"], tgt["dest_stop"], tgt["arrive_sched"])
-        tgt["arrive"] = arrive.isoformat()
-        arr_mins = (arrive - now).total_seconds() / 60
-        if arr_mins < -1:
-            del self.state["targets"][label]
-        elif self.state["active"]:
-            if 10 <= int(mins) <= 15 and (tgt.get("last_min") is None or int(mins) < tgt["last_min"]):
-                tgt["last_min"] = int(mins)
-                notify(f"🚆 Train in {int(mins)} min",
-                       f"{when:%H:%M} {tgt['origin']} → {tgt['headsign']}, arrives {tgt['dest']} {arrive:%H:%M}")
-                sound.play()
-            if mins < 0 and arr_mins <= 2 and not tgt.get("arr_alerted"):
-                tgt["arr_alerted"] = True
-                notify(f"🚆 Arriving at {tgt['dest']}", f"About {max(0, round(arr_mins))} min away ({arrive:%H:%M})")
-                sound.play()
 
     def first_refresh(self, timer):
         timer.stop()
@@ -227,9 +147,7 @@ class App(rumps.App):
     def _refresh(self):
         active = self.state["active"]
         try:
-            self.cfg = core.load_config()
-            sel = min(self.state["targets"], key=lambda l: self.state["targets"][l]["time"], default=None)
-            snap = core.snapshot(self.cfg, sel, self.state.get("where", "home"))
+            snap = self.snapshot()
         except Exception as e:
             self.title = "🚆 !"
             self.menu.clear()
@@ -238,6 +156,7 @@ class App(rumps.App):
             return
         now = datetime.now(core.TZ)
         self.check_targets(snap, now)
+        self.commute_alerts(snap, now)
         targets = self.state["targets"]
 
         toggle = rumps.MenuItem("⏸ Pause alerts" if active else "▶ Resume alerts", callback=self.toggle_active)
@@ -296,11 +215,6 @@ class App(rumps.App):
                         colour(si, "white")
                     items.append(si)
             items.append(None)
-            if active and self.in_alert_window(label, now) and up:
-                last = self.last_alert.get(label)
-                if not last or (now - last).total_seconds() >= self.cfg.get("alert_repeat_minutes", 10) * 60:
-                    self.last_alert[label] = now
-                    notify(f"{name}: {r['origin']} → {r['destination']}", core.fmt_train(up[0], now))
         items.append(rumps.MenuItem("Scroll the train list with the mouse wheel; click a train to select it (✓)"))
         for key, text in (("auto", "Auto (GPS)"), ("home", "I'm at home"), ("work", "I'm at work")):
             wi = rumps.MenuItem(f"📍 {text}", callback=self.set_where(key))
@@ -308,23 +222,10 @@ class App(rumps.App):
             items.append(wi)
         items.append(rumps.MenuItem(f"Location source: {snap['location_source']}"))
         items.append(rumps.MenuItem("Refresh", callback=self.refresh))
-        items.append(rumps.MenuItem("Edit config…", callback=lambda _: subprocess.run(["open", "-t", core.CONFIG])))
+        items.append(rumps.MenuItem("Edit config…", callback=lambda _: osutil.open_file(core.CONFIG)))
         items.append(rumps.MenuItem("Quit", callback=rumps.quit_application))
 
-        def m(dt):
-            return f"({max(0, int((dt - now).total_seconds() // 60))}m)"
-
-        pick = next((l for l in ("work", "home") if self.in_alert_window(l, now)), "work" if now.hour < 12 else "home")
-        tgt = targets.get(pick) or targets.get("home" if pick == "work" else "work")
-        if tgt:
-            dep, arr = datetime.fromisoformat(tgt["time"]), datetime.fromisoformat(tgt["arrive"])
-            self.title = (f"🚆✓ {dep:%H:%M} {m(dep)} → {arr:%H:%M} {m(arr)}" if dep > now
-                          else f"🚆 arr {arr:%H:%M} {m(arr)}")
-        else:
-            tr = [t for t in snap["routes"][pick]["trains"] if not t["departed"]]
-            self.title = f"🚆 {tr[0]['time']:%H:%M} {m(tr[0]['time'])}" if tr else "🚆"
-        if not active:
-            self.title = "⏸ " + self.title
+        self.title = "🚆 " + self.title_text(snap, now)
         self.menu.clear()
         self.menu = items
 
