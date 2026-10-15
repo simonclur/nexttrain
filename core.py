@@ -143,8 +143,8 @@ def next_trains(db, origin_id, dest_id, now=None, limit=3, window_hours=4, past_
     now = now or datetime.now(TZ)
     rt = realtime()
     results = []
-    # today's services use dep as-is; yesterday's services run past midnight (dep >= 24h)
-    for offset in (0, 1):
+    # yesterday's services can run past midnight (dep >= 24h); tomorrow's cover the late window
+    for offset in (1, 0, -1):
         day = (now - timedelta(days=offset)).date()
         services = active_services(db, datetime.combine(day, datetime.min.time()))
         if not services:
@@ -228,8 +228,8 @@ def snapshot(cfg=None):
         for (sid, name, _, _), dist in stations:
             if sid == dest[0]:
                 continue
-            trains = next_trains(db, sid, dest[0], limit=cfg.get("max_future", 40), past_minutes=past_min,
-                                 window_hours=cfg.get("future_hours", 10))
+            trains = next_trains(db, sid, dest[0], limit=cfg.get("max_future", 400), past_minutes=past_min,
+                                 window_hours=cfg.get("future_hours", 24))
             upcoming = [t for t in trains if not t["departed"]]
             if not upcoming:
                 continue
