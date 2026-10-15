@@ -33,6 +33,7 @@ class App(rumps.App):
         self.cfg = core.load_config()
         self.last_alert = {}
         self.lock = threading.Lock()
+        self.offset = {"work": 0, "home": 0}  # rows scrolled from the first upcoming train
         self.state = {"active": True, "target": None}  # target: {trip_id, label, time(iso), origin, dest, headsign, last_min}
         try:
             with open(STATE) as f:
@@ -57,6 +58,12 @@ class App(rumps.App):
         h, m = map(int, a["time"].split(":"))
         mins = (now.hour * 60 + now.minute) - (h * 60 + m)
         return 0 <= mins <= self.cfg.get("alert_window_minutes", 45)
+
+    def scroll(self, label, offset):
+        def cb(_):
+            self.offset[label] = offset
+            self.refresh(None)
+        return cb
 
     def toggle_active(self, _):
         self.state["active"] = not self.state["active"]
@@ -142,7 +149,13 @@ class App(rumps.App):
             up = [t for t in r["trains"] if not t["departed"]]
             if not up:
                 items.append(rumps.MenuItem("   no trains found"))
-            for t in r["trains"]:
+            trains_all = r["trains"]
+            first = next((i for i, t in enumerate(trains_all) if not t["departed"]), len(trains_all))
+            size = self.cfg.get("trains_shown", 3)
+            start = max(0, min(first + self.offset[label], max(0, len(trains_all) - size)))
+            if start > 0:
+                items.append(rumps.MenuItem("   ▲ Earlier", callback=self.scroll(label, start - size - first)))
+            for t in trains_all[start:start + size]:
                 mi = rumps.MenuItem("   " + core.fmt_train(t, now), callback=self.pick_train(label, r, t))
                 mi.state = 1 if tgt and tgt["trip_id"] == t["trip_id"] else 0
                 if t["departed"]:
@@ -168,6 +181,10 @@ class App(rumps.App):
                         else:
                             colour(si, "white")
                         items.append(si)
+            if start + size < len(trains_all):
+                items.append(rumps.MenuItem("   ▼ Later", callback=self.scroll(label, start + size - first)))
+            if start != first:
+                items.append(rumps.MenuItem("   ⟲ Next trains", callback=self.scroll(label, 0)))
             items.append(None)
             if active and self.in_alert_window(label, now) and up:
                 last = self.last_alert.get(label)

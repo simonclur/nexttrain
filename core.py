@@ -220,7 +220,7 @@ def snapshot(cfg=None):
     lat, lon, src = get_location(cfg)
     stations = nearest_stations(db, lat, lon, cfg.get("candidate_stations", 3))
     out = {"location_source": src, "stations": [], "routes": {}}
-    past_min = cfg.get("past_minutes", 35)
+    past_min = cfg.get("past_minutes", 180)
     for label in ("home", "work"):
         dest = find_station(db, cfg[label]["station"])
         best = None
@@ -228,7 +228,8 @@ def snapshot(cfg=None):
         for (sid, name, _, _), dist in stations:
             if sid == dest[0]:
                 continue
-            trains = next_trains(db, sid, dest[0], limit=cfg.get("trains_shown", 3), past_minutes=past_min)
+            trains = next_trains(db, sid, dest[0], limit=cfg.get("max_future", 40), past_minutes=past_min,
+                                 window_hours=cfg.get("future_hours", 10))
             upcoming = [t for t in trains if not t["departed"]]
             if not upcoming:
                 continue
