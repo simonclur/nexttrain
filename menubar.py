@@ -141,6 +141,13 @@ class App(rumps.App):
             self.offset[label] = start - first
         return cb
 
+    def set_where(self, key):
+        def cb(_):
+            self.state["where"] = key
+            self.save()
+            self.refresh(None)
+        return cb
+
     def toggle_active(self, _):
         self.state["active"] = not self.state["active"]
         self.save()
@@ -206,7 +213,7 @@ class App(rumps.App):
         try:
             self.cfg = core.load_config()
             sel = min(self.state["targets"], key=lambda l: self.state["targets"][l]["time"], default=None)
-            snap = core.snapshot(self.cfg, sel)
+            snap = core.snapshot(self.cfg, sel, self.state.get("where", "home"))
         except Exception as e:
             self.title = "🚆 !"
             self.menu.clear()
@@ -275,7 +282,11 @@ class App(rumps.App):
                     self.last_alert[label] = now
                     notify(f"{name}: {r['origin']} → {r['destination']}", core.fmt_train(up[0], now))
         items.append(rumps.MenuItem("Scroll the train list with the mouse wheel; click a train to select it (✓)"))
-        items.append(rumps.MenuItem(f"Location: {snap['location_source']}"))
+        for key, text in (("auto", "Auto (GPS)"), ("home", "I'm at home"), ("work", "I'm at work")):
+            wi = rumps.MenuItem(f"📍 {text}", callback=self.set_where(key))
+            wi.state = 1 if self.state.get("where", "home") == key else 0
+            items.append(wi)
+        items.append(rumps.MenuItem(f"Location source: {snap['location_source']}"))
         items.append(rumps.MenuItem("Refresh", callback=self.refresh))
         items.append(rumps.MenuItem("Edit config…", callback=lambda _: subprocess.run(["open", "-t", core.CONFIG])))
         items.append(rumps.MenuItem("Quit", callback=rumps.quit_application))

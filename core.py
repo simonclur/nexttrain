@@ -213,17 +213,21 @@ def fmt_train(t, now=None):
             f"arr {t['arrive']:%H:%M} ({rel(t['arrive'], now)})")
 
 
-def snapshot(cfg=None, selected_label=None):
+def snapshot(cfg=None, selected_label=None, where="auto"):
     """Trains for both commute directions.
 
-    The primary leg starts from the station nearest the current location. The other leg is assumed to start
-    from the primary leg's destination. selected_label = direction of the soonest selected train, if any.
+    The primary leg starts from the station nearest the current location (or the home/work station when
+    `where` is set manually). The other leg is assumed to start from the primary leg's destination.
+    selected_label = direction of the soonest selected train, if any.
     """
     cfg = cfg or load_config()
     db = connect()
-    lat, lon, src = get_location(cfg)
-    stations = nearest_stations(db, lat, lon, cfg.get("candidate_stations", 3))
     dests = {l: find_station(db, cfg[l]["station"]) for l in ("home", "work")}
+    if where in dests:
+        lat, lon, src = dests[where][2], dests[where][3], f"manual: at {where}"
+    else:
+        lat, lon, src = get_location(cfg)
+    stations = nearest_stations(db, lat, lon, cfg.get("candidate_stations", 3))
     far = {l: haversine(lat, lon, d[2], d[3]) for l, d in dests.items()}
     # by location: the direction whose destination is further away is the one I'm about to travel
     primary = max(far, key=far.get)
