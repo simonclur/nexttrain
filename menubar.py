@@ -205,7 +205,8 @@ class App(rumps.App):
         active = self.state["active"]
         try:
             self.cfg = core.load_config()
-            snap = core.snapshot(self.cfg)
+            sel = min(self.state["targets"], key=lambda l: self.state["targets"][l]["time"], default=None)
+            snap = core.snapshot(self.cfg, sel)
         except Exception as e:
             self.title = "🚆 !"
             self.menu.clear()
@@ -230,7 +231,8 @@ class App(rumps.App):
         for label, name in (("work", "To work"), ("home", "To home")):
             tgt = targets.get(label)
             r = snap["routes"][label]
-            items.append(rumps.MenuItem(f"{name}: {r['origin']} → {r['destination']} ({r['distance_km']:.1f} km)"))
+            where = "(starts after your first trip)" if r["assumed"] else f"({r['distance_km']:.1f} km away)"
+            items.append(rumps.MenuItem(f"{name}: {r['origin']} → {r['destination']} {where}"))
             up = [t for t in r["trains"] if not t["departed"]]
             if not up:
                 items.append(rumps.MenuItem("   no trains found"))

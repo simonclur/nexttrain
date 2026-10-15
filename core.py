@@ -213,34 +213,51 @@ def fmt_train(t, now=None):
             f"arr {t['arrive']:%H:%M} ({rel(t['arrive'], now)})")
 
 
-def snapshot(cfg=None):
-    """Everything the UI needs: station, and trains to home & work."""
+def snapshot(cfg=None, selected_label=None):
+    """Trains for both commute directions.
+
+    The primary leg starts from the station nearest the current location. The other leg is assumed to start
+    from the primary leg's destination. selected_label = direction of the soonest selected train, if any.
+    """
     cfg = cfg or load_config()
     db = connect()
     lat, lon, src = get_location(cfg)
     stations = nearest_stations(db, lat, lon, cfg.get("candidate_stations", 3))
-    out = {"location_source": src, "stations": [], "routes": {}}
+    dests = {l: find_station(db, cfg[l]["station"]) for l in ("home", "work")}
+    far = {l: haversine(lat, lon, d[2], d[3]) for l, d in dests.items()}
+    # by location: the direction whose destination is further away is the one I'm about to travel
+    primary = max(far, key=far.get)
+    # a selected train overrides, unless I'm already at its destination
+    if selected_label and far[selected_label] > 1.0:
+        primary = selected_label
+    other = "home" if primary == "work" else "work"
     past_min = cfg.get("past_minutes", 180)
-    for label in ("home", "work"):
-        dest = find_station(db, cfg[label]["station"])
-        best = None
-        # pick the nearby candidate station with the earliest useful train (nearest wins ties)
-        for (sid, name, _, _), dist in stations:
-            if sid == dest[0]:
-                continue
-            trains = next_trains(db, sid, dest[0], limit=cfg.get("max_future", 400), past_minutes=past_min,
-                                 window_hours=cfg.get("future_hours", 24))
-            upcoming = [t for t in trains if not t["departed"]]
-            if not upcoming:
-                continue
-            walk_min = dist / 0.08  # ~4.8km/h
-            usable = [t for t in upcoming if (t["time"] - datetime.now(TZ)).total_seconds() / 60 >= walk_min * 0.6]
-            key = (usable or upcoming)[0]["time"] + timedelta(minutes=walk_min)
-            if best is None or key < best[0]:
-                best = (key, name, dist, trains)
-        out["routes"][label] = {"destination": dest[1], "origin": best[1] if best else stations[0][0][1],
-                                "distance_km": best[2] if best else stations[0][1],
-                                "trains": best[3] if best else []}
+    kw = dict(limit=cfg.get("max_future", 400), past_minutes=past_min, window_hours=cfg.get("future_hours", 24))
+    out = {"location_source": src, "primary": primary, "routes": {}}
+
+    dest = dests[primary]
+    best = None
+    # pick the nearby candidate station with the earliest useful train (nearest wins ties)
+    for (sid, name, _, _), dist in stations:
+        if sid == dest[0]:
+            continue
+        trains = next_trains(db, sid, dest[0], **kw)
+        upcoming = [t for t in trains if not t["departed"]]
+        if not upcoming:
+            continue
+        walk_min = dist / 0.08  # ~4.8km/h
+        usable = [t for t in upcoming if (t["time"] - datetime.now(TZ)).total_seconds() / 60 >= walk_min * 0.6]
+        key = (usable or upcoming)[0]["time"] + timedelta(minutes=walk_min)
+        if best is None or key < best[0]:
+            best = (key, name, dist, trains)
+    out["routes"][primary] = {"destination": dest[1], "origin": best[1] if best else stations[0][0][1],
+                              "distance_km": best[2] if best else stations[0][1],
+                              "trains": best[3] if best else [], "assumed": False}
+
+    # return leg: starts where the primary leg ends
+    start = dests[primary]
+    out["routes"][other] = {"destination": dests[other][1], "origin": start[1], "distance_km": None,
+                            "trains": next_trains(db, start[0], dests[other][0], **kw), "assumed": True}
     return out
 
 
@@ -249,7 +266,7 @@ if __name__ == "__main__":
     s = snapshot()
     print(f"Location via {s['location_source']}")
     for k, r in s["routes"].items():
-        print(f"\n{k.upper()}: {r['origin']} ({r['distance_km']:.1f} km) → {r['destination']}")
+        print(f"\n{k.upper()}: {r['origin']} → {r['destination']}" + (" (assumed start)" if r["assumed"] else ""))
         for t in r["trains"]:
             print("  ", fmt_train(t))
         if not r["trains"]:
