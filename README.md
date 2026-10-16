@@ -27,4 +27,7 @@ User data (config, timetable, selections) lives in `~/Library/Application Suppor
   The later leg is assumed to start where the first one ends.
 - 📍 sets where you are (home / work). Auto uses GPS on macOS if permitted (packaged app prompts for Location),
   otherwise `fallback_location`. Windows has no GPS support, so use the manual choice.
-- `config.json`: home/work stations (partial names OK), alert times, days (0=Mon), commute windows, fallback location.
+- `config.json` (git-ignored, created from `config.example.json` on first run): home/work stations (partial names OK), alert times, days (0=Mon), commute windows, fallback location.
+
+## Licence and data
+MIT licence (see `LICENSE`). Timetable and realtime data are from Translink (South-East Queensland), published as open data; please check and follow their licence/attribution terms.

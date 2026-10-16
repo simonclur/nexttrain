@@ -3,8 +3,8 @@
 Everything a new engineer (human, Copilot or Claude) needs to continue this project.
 
 ## 1. Goal and user requirements (chronological)
-Owner: simonclur (Brisbane / South-East Queensland). A free "NextThere"-style tool, on his MacBook (later also Windows and iOS):
-- Find nearest major train station (GPS), show next departing trains to **Home = Central station** and **Work = Roma Street station**; both editable in `config.json`.
+Owner: simonclur. Targets the South-East Queensland (TransLink) network. A free "NextThere"-style tool, on his MacBook (later also Windows and iOS):
+- Find nearest major train station (GPS), show next departing trains to **Home** and **Work** stations, set in the git-ignored `config.json` (template: `config.example.json`).
 - Alerts around commute times: **to work from 06:30**, **to home from 16:30** (Mon–Fri).
 - Menu-bar app with pause/resume of alerts. Click a train to select it; a **train sound + notification** fires 15→10 min before departure, and an **arrival alert** ~2 min before the destination (uses live delayed times).
 - Show estimated arrival time; show mins in brackets e.g. `06:42 (12m)` in rows and the menu-bar title.
@@ -15,7 +15,7 @@ Owner: simonclur (Brisbane / South-East Queensland). A free "NextThere"-style to
 - Default list window: to-work 05:00–09:00, to-home 16:00–20:00, but scrollable anywhere.
 - On reopening the menu the **selected train is centred** in the 3-row window; selection is drawn **bright green**.
 - Manual location mode (📍 I'm at home / I'm at work / Auto) because GPS permission isn't available to a plain Python process.
-- Private GitHub repo `simonclur/nexttrain`. Runs on **macOS and Windows**; macOS packaged as a shareable **.dmg**.
+- Public GitHub repo `simonclur/nexttrain` (personal stations/config are git-ignored). Runs on **macOS and Windows**; macOS packaged as a shareable **.dmg**.
 - Planned, not started: iOS via GitHub Pages PWA (needs a Cloudflare Worker CORS proxy) and/or a native Swift app (Xcode was downloading).
 
 ## 2. Data sources (free, no API key)
@@ -33,12 +33,12 @@ Owner: simonclur (Brisbane / South-East Queensland). A free "NextThere"-style to
 | `menubar.py` | macOS rumps UI; `TrainListView` (NSView embedded in a menu item) |
 | `tray_win.py` | Windows pystray UI (submenu per leg with Earlier/Later paging; generated icon showing minutes) |
 | `build_data.py` | Builds `rail.db` (rail only, route_type 2) atomically via `rail.db.new` |
-| `paths.py` | File locations: project folder when run from source; `~/Library/Application Support/NextTrain` (mac) / `%APPDATA%\NextTrain` (win) when packaged. Copies default `config.json` on first run |
+| `paths.py` | File locations: project folder when run from source; `~/Library/Application Support/NextTrain` (mac) / `%APPDATA%\NextTrain` (win) when packaged. Copies `config.example.json` to `config.json` on first run |
 | `osutil.py` | Notifications (osascript / tray toast), WAV playback (afplay / winsound), open file |
 | `sound.py` | Synthesises chuff + whistle WAV to `data/train.wav` |
 | `setup.py`, `build_mac.sh` | py2app bundle → ad-hoc codesign → `dist/NextTrain.dmg` |
 | `.github/workflows/build.yml` | CI: Windows (PyInstaller zip) + mac (.dmg) artifacts; run manually or on `v*` tags |
-| `config.json` | User settings (below) |
+| `config.example.json` | Template settings (below); `config.json` is the git-ignored personal copy, created on first run |
 
 ### Key logic
 - DB tables: `stations, trips, st(trip_id,seq,station,stop_id,platform,dep), calendar, calendar_dates`. Stations keyed by `parent_station`. Times can exceed 24:00:00, so `next_trains` checks yesterday/today/tomorrow each with its own `midnight`.
@@ -49,7 +49,7 @@ Owner: simonclur (Brisbane / South-East Queensland). A free "NextThere"-style to
 - `ensure_data()` builds the DB on first run and refreshes if older than 7 days (keeps old copy on failure).
 
 ### config.json keys
-`home/work.station` (partial name OK), `fallback_location{lat,lon}` (Roma Street ≈ -27.4766,153.0197), `use_ip_location` (false; IP geo is inaccurate), `candidate_stations`, `trains_shown` (3), `commute_windows`, `alerts{work,home}{time,days(0=Mon)}`, `alert_repeat_minutes`, `alert_window_minutes`, `refresh_seconds`; optional `past_minutes` (180), `future_hours` (24), `max_future` (400).
+`home/work.station` (partial name OK), `fallback_location{lat,lon}` (default: Brisbane CBD ≈ -27.4766,153.0197), `use_ip_location` (false; IP geo is inaccurate), `candidate_stations`, `trains_shown` (3), `commute_windows`, `alerts{work,home}{time,days(0=Mon)}`, `alert_repeat_minutes`, `alert_window_minutes`, `refresh_seconds`; optional `past_minutes` (180), `future_hours` (24), `max_future` (400).
 
 ### State (`data/state.json`)
 `active`, `where`, `targets{work|home: selected train + bookkeeping}`. Scroll offsets are in memory only.
@@ -82,6 +82,7 @@ Open ideas:
 3. Auto location mode heuristics (time of day) while GPS is unreliable; Windows location via WinRT.
 4. Developer ID signing + notarisation for friction-free sharing.
 5. iOS: PWA on GitHub Pages + Cloudflare Worker proxy for realtime + weekly GitHub Action producing static timetable JSON (needs public repo on a free plan for Pages); web push works on iOS 16.4+ installed PWA but no custom sounds/background GPS. Then native Swift app.
+   - **watchOS/iOS (in progress):** `watch/NextTrainCore` is a Swift package porting `core.py` (`nextTrains`, `_delay`, GTFS-RT protobuf parser, SQLite reader). `export_watch_db.py` builds a small `watch.db` (~4 MB, trips calling at both home and work stations) with the same schema as `rail.db`. Offline = scheduled times from the bundled DB; online = `RealtimeClient` overlays delays. Test: `cd watch/NextTrainCore && NEXTTRAIN_DB=/path/watch.db NEXTTRAIN_HOME=<station> NEXTTRAIN_WORK=<station> swift test --scratch-path /tmp/ntbuild` (scratch path outside Dropbox, otherwise codesign fails on xattrs). `Snapshot.swift` ports `snapshot` (tested against Python). `watch/NextTrainWatch/` holds SwiftUI sources (app, `DepartureModel` with CoreLocation + live overlay, `DepartureListView`); the Xcode project is generated by XcodeGen from `watch/project.yml` (`brew install xcodegen; cd watch && xcodegen generate`; standalone watch-only app, bundle id `com.simonclur.nexttrain.watch`; set `DEVELOPMENT_TEAM` for a real device). Copy `data/watch.db` (from `export_watch_db.py`) to `watch/NextTrainWatch/watch.db` before building. Simulator build: `xcodebuild -project NextTrain.xcodeproj -scheme NextTrainWatch -destination 'platform=watchOS Simulator,name=Apple Watch Series 12 (46mm)' -derivedDataPath /tmp/ntdd CODE_SIGNING_ALLOWED=NO build`. Verified running in the simulator. Note: the Oct 2026 GTFS has no weekend services for these trips until Nov 7, so weekend lists are empty (Python app too). Also done: trip detail view (`tripStops`, tested), WidgetKit complication (`watch/NextTrainWidget`, accessory rectangular/inline/corner; one timeline entry per upcoming departure so it works offline; embedded in the watch app), and `TimetableStore` (Documents copy of watch.db wins over the bundled one; `AppConfig.timetableURL` in `watch/Shared/AppConfig.swift` is nil until a host for watch.db is chosen). Stations live in the git-ignored `watch/Shared/LocalConfig.swift` (copy `watch/LocalConfig.example.swift` there before building); `AppConfig.commute` reads it. Free-account note: App Groups are unavailable, so app and widget each keep their own downloaded copy; the 7-day signing expiry means reinstalling from Xcode (which re-bundles watch.db) anyway. Next: choose a host for watch.db, tune widget refresh, test on a real watch.
 6. Untested in live UI over a full ride: arrival/reminder notifications, scroll/click edge cases.
 
 ## 7. Conventions

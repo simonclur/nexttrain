@@ -24,4 +24,4 @@ CONFIG = os.path.join(USER, "config.json")
 os.makedirs(DATA, exist_ok=True)
 
 if not os.path.exists(CONFIG):
-    shutil.copy(os.path.join(BUNDLE, "config.json"), CONFIG)
+    shutil.copy(os.path.join(BUNDLE, "config.example.json"), CONFIG)

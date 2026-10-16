@@ -1,0 +1,53 @@
+name: NextTrain
+options:
+  bundleIdPrefix: com.simonclur
+packages:
+  NextTrainCore:
+    path: NextTrainCore
+settings:
+  base:
+    CODE_SIGN_STYLE: Automatic
+    # set your Personal Team ID here (Xcode > Settings > Accounts) to run on a real watch
+    DEVELOPMENT_TEAM: ""
+targets:
+  NextTrainWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources: [NextTrainWatch, Shared]
+    dependencies:
+      - package: NextTrainCore
+      - target: NextTrainWidget
+    info:
+      path: NextTrainWatch/Info.plist
+      properties:
+        WKApplication: true
+        WKWatchOnly: true
+        NSLocationWhenInUseUsageDescription: Finds the nearest station.
+        UILaunchScreen: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.simonclur.nexttrain.watch
+        GENERATE_INFOPLIST_FILE: NO
+  NextTrainWidget:
+    type: app-extension
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - path: NextTrainWidget
+      - path: Shared
+      - path: NextTrainWatch/watch.db
+    dependencies:
+      - package: NextTrainCore
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: NextTrainWidget/Info.plist
+      properties:
+        CFBundleDisplayName: NextTrain
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.simonclur.nexttrain.watch.widget
+        GENERATE_INFOPLIST_FILE: NO

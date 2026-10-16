@@ -1,0 +1,50 @@
+{
+  "home": {
+    "station": "Central"
+  },
+  "work": {
+    "station": "Roma Street"
+  },
+  "fallback_location": {
+    "lat": -27.4766,
+    "lon": 153.0197
+  },
+  "use_ip_location": false,
+  "candidate_stations": 3,
+  "trains_shown": 3,
+  "commute_windows": {
+    "work": [
+      "05:00",
+      "09:00"
+    ],
+    "home": [
+      "16:00",
+      "20:00"
+    ]
+  },
+  "refresh_seconds": 60,
+  "alerts": {
+    "work": {
+      "time": "06:30",
+      "days": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "home": {
+      "time": "16:30",
+      "days": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  "alert_repeat_minutes": 10,
+  "alert_window_minutes": 45
+}

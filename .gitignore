@@ -5,3 +5,5 @@ data/
 build/
 dist/
 *.egg-info/
+config.json
+watch/Shared/LocalConfig.swift

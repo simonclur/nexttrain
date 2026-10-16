@@ -4,7 +4,7 @@ from setuptools import setup
 setup(
     name="Next Train",
     app=["app.py"],
-    data_files=["config.json"],
+    data_files=["config.example.json"],
     options={"py2app": {
         "argv_emulation": False,
         "plist": {

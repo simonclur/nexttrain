@@ -1,0 +1,44 @@
+import Foundation
+
+public struct Station: Hashable, Sendable {
+    public let id: String
+    public let name: String
+    public let lat: Double
+    public let lon: Double
+}
+
+public struct Departure: Identifiable, Hashable, Sendable {
+    public var id: String { "\(tripId)-\(seq)" }
+    public let tripId: String
+    public let time: Date            // departure incl. live delay
+    public let delayMin: Int
+    public let platform: String
+    public let headsign: String
+    public let live: Bool            // a realtime update exists for this trip
+    public let departed: Bool
+    public let arrive: Date          // arrival at destination incl. live delay
+    public let arriveScheduled: Date
+    public let seq: Int
+    public let destSeq: Int
+    public let destStop: String
+    public let midnight: Date        // start of the service day the trip belongs to
+}
+
+public enum NTError: Error { case database(String), noStation(String) }
+
+enum Brisbane {
+    // Queensland has no daylight saving, so a fixed zone is exact.
+    static let tz = TimeZone(identifier: "Australia/Brisbane")!
+    static var calendar: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = tz
+        return c
+    }
+}
+
+func haversineKm(_ lat1: Double, _ lon1: Double, _ lat2: Double, _ lon2: Double) -> Double {
+    let p = Double.pi / 180
+    let a = pow(sin((lat2 - lat1) * p / 2), 2) +
+        cos(lat1 * p) * cos(lat2 * p) * pow(sin((lon2 - lon1) * p / 2), 2)
+    return 12742 * asin(a.squareRoot())
+}
