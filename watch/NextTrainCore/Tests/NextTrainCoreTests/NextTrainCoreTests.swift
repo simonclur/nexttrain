@@ -73,4 +73,23 @@ final class NextTrainCoreTests: XCTestCase {
         let rt = [d.tripId: TripRealtime(cancelled: false, updates: [StopUpdate(seq: d.seq, stopId: "", delay: 120)])]
         XCTAssertEqual(try tt.tripStops(for: d, rt: rt).last?.time, d.arrive.addingTimeInterval(120))
     }
+
+    /// NEXTTRAIN_ARCHIVE = rail.db.z from publish_timetable.py; checks inflate + slimming end to end.
+    func testInflateAndSlimPublishedArchive() throws {
+        let (_, home, work, now) = try fixture()
+        guard let archive = ProcessInfo.processInfo.environment["NEXTTRAIN_ARCHIVE"] else {
+            throw XCTSkip("NEXTTRAIN_ARCHIVE not set")
+        }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("slim-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let full = dir.appendingPathComponent("rail.db"), slim = dir.appendingPathComponent("watch.db")
+        try TimetableSlimmer.inflate(URL(fileURLWithPath: archive), to: full)
+        try TimetableSlimmer.slim(full: full, stationNames: [home.name, work.name], to: slim)
+        let a = try Timetable(path: slim.path).nextTrains(from: home.id, to: work.id, now: now, query: Query(limit: 3, windowHours: 2))
+        let b = try Timetable(path: full.path).nextTrains(from: home.id, to: work.id, now: now, query: Query(limit: 3, windowHours: 2))
+        XCTAssertEqual(a.map(\.time), b.map(\.time))
+        XCTAssertEqual(a.count, 3)
+        XCTAssertLessThan(try FileManager.default.attributesOfItem(atPath: slim.path)[.size] as! Int, 10_000_000)
+    }
 }

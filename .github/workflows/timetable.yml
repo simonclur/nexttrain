@@ -1,0 +1,25 @@
+name: Publish timetable
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * 0"   # Monday 04:00 Brisbane
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python publish_timetable.py --build rail.db.z
+      - name: Upload to the rolling "timetable" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view timetable >/dev/null 2>&1 || gh release create timetable --title "Timetable" \
+            --notes "Weekly rail timetable built from Translink SEQ GTFS (open data). Used by the watch app."
+          gh release upload timetable rail.db.z --clobber

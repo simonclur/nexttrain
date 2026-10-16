@@ -17,20 +17,29 @@ public enum TimetableStore {
         return Date().timeIntervalSince(d)
     }
 
-    /// Downloads and validates a new DB, then swaps it in. Returns false (keeping the old DB) on any failure.
+    /// Downloads the published full timetable (rail.db.z), slims it to trips between `stations`, validates it and
+    /// swaps it in. Returns false (keeping the old DB) on any failure.
     @discardableResult
-    public static func update(from url: URL) async -> Bool {
+    public static func update(from url: URL, stations: [String]) async -> Bool {
         guard let (tmp, resp) = try? await URLSession.shared.download(from: url),
               (resp as? HTTPURLResponse)?.statusCode == 200 else { return false }
-        defer { try? FileManager.default.removeItem(at: tmp) }
-        guard let t = try? Timetable(path: tmp.path), (try? t.stations().isEmpty) == false,
-              (try? t.query("SELECT 1 FROM st LIMIT 1", [], { _ in 1 }).isEmpty) == false else { return false }
         let fm = FileManager.default
-        if fm.fileExists(atPath: downloadedURL.path) {
-            guard (try? fm.replaceItemAt(downloadedURL, withItemAt: tmp)) != nil else { return false }
-        } else {
-            guard (try? fm.moveItem(at: tmp, to: downloadedURL)) != nil else { return false }
-        }
-        return true
+        let work = fm.temporaryDirectory.appendingPathComponent("timetable-\(UUID().uuidString)")
+        defer { try? fm.removeItem(at: tmp); try? fm.removeItem(at: work) }
+        let full = work.appendingPathComponent("rail.db"), slim = work.appendingPathComponent("watch.db")
+        do {
+            try fm.createDirectory(at: work, withIntermediateDirectories: true)
+            try TimetableSlimmer.inflate(tmp, to: full)
+            try TimetableSlimmer.slim(full: full, stationNames: stations, to: slim)
+            let t = try Timetable(path: slim.path)
+            guard try !t.stations().isEmpty, try !t.query("SELECT 1 FROM st LIMIT 1", [], { _ in 1 }).isEmpty
+            else { return false }
+            if fm.fileExists(atPath: downloadedURL.path) {
+                _ = try fm.replaceItemAt(downloadedURL, withItemAt: slim)
+            } else {
+                try fm.moveItem(at: slim, to: downloadedURL)
+            }
+            return true
+        } catch { return false }
     }
 }
