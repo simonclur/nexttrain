@@ -115,3 +115,70 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.simonclur.nexttrain.ios.widget
         GENERATE_INFOPLIST_FILE: NO
+  NextTrainMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: NextTrainMac
+        excludes: [MacWidgetBundle.swift]
+      - path: Shared
+        excludes: [TrainActivity.swift]
+      - path: NextTrainWatch/watch.db
+    dependencies:
+      - package: NextTrainCore
+      - package: NextTrainCore
+        product: NextTrainUI
+      - target: NextTrainMacWidget
+    info:
+      path: NextTrainMac/Info.plist
+      properties:
+        CFBundleDisplayName: NextTrain
+        LSUIElement: true
+        NSLocationUsageDescription: Finds the nearest station.
+        NSLocationWhenInUseUsageDescription: Finds the nearest station.
+    entitlements:
+      path: NextTrainMac/NextTrainMac.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.personal-information.location: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.simonclur.nexttrain.mac
+        GENERATE_INFOPLIST_FILE: NO
+  NextTrainMacWidget:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: NextTrainWidget
+        excludes: ["Info*.plist", "WatchBundle.swift"]
+      - path: NextTrainMac/MacWidgetBundle.swift
+      - path: Shared
+        excludes: [NextTrainShortcuts.swift, TrainActivity.swift]
+      - path: NextTrainWatch/watch.db
+    dependencies:
+      - package: NextTrainCore
+      - package: NextTrainCore
+        product: NextTrainUI
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: NextTrainMac/WidgetInfo.plist
+      properties:
+        CFBundleDisplayName: NextTrain
+        NSWidgetWantsLocation: true
+        NSLocationUsageDescription: Finds the nearest station.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: NextTrainMac/NextTrainMacWidget.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+        com.apple.security.personal-information.location: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.simonclur.nexttrain.mac.widget
+        GENERATE_INFOPLIST_FILE: NO

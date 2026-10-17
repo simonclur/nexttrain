@@ -7,7 +7,7 @@ HOME_STN  ?= Central
 WORK_STN  ?= Roma Street
 SCRATCH   ?= /tmp/ntbuild
 
-.PHONY: help venv desktop-run desktop-data desktop-mac timetable watch-config watch-data watch-project watch-test watch-build ios-build
+.PHONY: help venv desktop-run desktop-data desktop-mac timetable watch-config watch-data watch-project watch-test watch-build ios-build mac-build
 
 help:
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-16s %s\n", $$1, $$2}'
@@ -44,6 +44,10 @@ watch-test: ## run the Swift package tests (DB-backed tests need NEXTTRAIN_DB, s
 ios-build: watch-project ## build the iPhone app + widget for the iOS simulator
 	cd watch && xcodebuild -project NextTrain.xcodeproj -scheme NextTrainiOS \
 	  -destination 'generic/platform=iOS Simulator' -derivedDataPath /tmp/ntdd CODE_SIGNING_ALLOWED=NO build
+
+mac-build: watch-project ## build the native Mac app + widget
+	cd watch && xcodebuild -project NextTrain.xcodeproj -scheme NextTrainMac \
+	  -destination 'generic/platform=macOS' -derivedDataPath /tmp/ntdd CODE_SIGNING_ALLOWED=NO build
 
 watch-build: watch-project ## build the watch app for the simulator
 	cd watch && xcodebuild -project NextTrain.xcodeproj -scheme NextTrainWatch \

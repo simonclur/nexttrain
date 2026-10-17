@@ -52,3 +52,6 @@ jobs:
 
       - name: Build the iPhone app and widget for the simulator
         run: make ios-build
+
+      - name: Build the native Mac app and widget
+        run: make mac-build

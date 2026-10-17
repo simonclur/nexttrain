@@ -87,6 +87,8 @@ struct NextTrainWidget: Widget {
         .description("Next departures, offline from the timetable and live when online.")
         #if os(watchOS)
         .supportedFamilies([.accessoryRectangular, .accessoryInline, .accessoryCorner, .accessoryCircular])
+        #elseif os(macOS)
+        .supportedFamilies([.systemSmall, .systemMedium])
         #else
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryInline, .accessoryCircular])
         #endif

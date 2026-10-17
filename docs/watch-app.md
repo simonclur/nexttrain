@@ -51,6 +51,7 @@ watch/
 │   ├── Info.plist
 │   └── watch.db                 bundled timetable (generated, git-ignored)
 ├── Shared/                      compiled into every app/widget target: AppConfig, LocalConfig, Model.swift (DepartureModel)
+├── NextTrainMac/                native menu-bar app (MenuBarExtra) + widget bundle for macOS
 ├── NextTrainiOS/                iPhone app (ContentView) + Info plists; its widget target reuses NextTrainWidget/ sources
 └── NextTrainWidget/             the complication / widget target (WidgetKit; also built for iOS as NextTrainiOSWidget)
     ├── NextTrainWidget.swift    Provider (timeline) + views

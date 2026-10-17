@@ -52,8 +52,8 @@ extension read it (`NSWidgetWantsLocation`); this must be verified on a real dev
 | Live Activity, Dynamic Island (`TrainLiveActivity`) | iOS 16.2+, watch mirror | after long-press > "Track this train" in the iPhone app | tap | countdown, delay, platform, arrival | ✅ builds, untested on device |
 | Control Centre control (`NextTrainControl`) | iOS 18 | on demand, also Lock Screen / Action button slot | tap runs `ToggleDirectionIntent` | switch direction | ✅ builds |
 | Siri / Shortcuts / Action button | iOS 17+, watchOS 10+ | on demand | `NextTrainIntent` ("Next train in NextTrain"), `ToggleDirectionIntent` | spoken next train / switch | ✅ builds, untested on device |
-| Mac widgets | macOS 14+ | desktop, Notification Centre | `Button(intent:)` | next trains | 🟡 |
-| Mac app | macOS 13+ (`MenuBarExtra`) | always in the menu bar | full | parity with the Python app, then replaces it | 🟡 |
+| Mac widgets (`NextTrainMacWidget`) | macOS 14+ | desktop, Notification Centre | tap | small / medium next trains | ✅ builds |
+| Mac app (`NextTrainMac`, `MenuBarExtra`) | macOS 14+ | always in the menu bar | popover list, switch direction, refresh | next time in the menu bar; 6 departures | ✅ runs; Python app still the full one |
 
 ```mermaid
 flowchart LR
@@ -79,3 +79,7 @@ Each widget timeline entry carries a `TimelineEntryRelevance`: score 100 on week
 ## Live Activity
 
 `Shared/TrainActivity.swift` defines `TrainActivityAttributes` and `TrainTracker` (iOS only). Long-press a departure in the iPhone app and choose "Track this train"; the app updates the activity each time it refreshes and ends it after the train leaves. Updates are local, so they only arrive while the app runs (push updates need a paid account and a server). Live Activities mirror to a paired Apple Watch's Smart Stack automatically on watchOS 11+.
+
+## Native Mac app: parity with the Python app
+
+The Swift Mac app (`watch/NextTrainMac`) shows the next time in the menu bar and a popover with six departures, a direction switch and refresh. It is not yet a replacement for `desktop/`. Missing: sound alerts, selected-train alerts, launch at login, a settings window for stations (they come from `LocalConfig.swift`), and Developer ID signing/notarisation (needs a paid account). Retire the Python app only when these exist.
