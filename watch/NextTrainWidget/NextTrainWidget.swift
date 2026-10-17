@@ -6,6 +6,7 @@ struct TrainEntry: TimelineEntry {
     let date: Date
     let route: String
     let trains: [Departure]
+    var note: String? = nil
 }
 
 struct Provider: TimelineProvider {
@@ -27,13 +28,15 @@ struct Provider: TimelineProvider {
     /// One entry per upcoming departure so the list advances by itself even when offline.
     private func entries(live: Bool) async -> [TrainEntry] {
         // No timetable download here: widget extensions have tight memory/time limits. Uses the bundled DB.
-        guard let tt = TimetableStore.open() else { return [] }
+        let fail = { (m: String) in [TrainEntry(date: .now, route: "NextTrain", trains: [], note: m)] }
+        guard let tt = TimetableStore.open() else { return fail("No timetable DB") }
         let rt = live ? await RealtimeClient().fetch() : [:]
         // Small query window keeps memory and time within the extension limits.
         var cfg = AppConfig.commute
         cfg.pastMinutes = 0; cfg.maxFuture = 8; cfg.futureHours = 6; cfg.candidateStations = 2
-        guard let snap = try? tt.snapshot(config: cfg, rt: rt), let r = snap.routes[snap.primary]
-        else { return [] }
+        let snap: Snapshot
+        do { snap = try tt.snapshot(config: cfg, rt: rt) } catch { return fail("Err: \(error)") }
+        guard let r = snap.routes[snap.primary] else { return fail("No route") }
         let upcoming = r.trains.filter { !$0.departed }
         let route = "\(r.origin) → \(r.destination)"
         let times = [Date.now] + upcoming.prefix(5).map(\.time)
@@ -61,7 +64,7 @@ struct WidgetView: View {
         default:
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.route).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
-                if entry.trains.isEmpty { Text("No trains").font(.headline) }
+                if entry.trains.isEmpty { Text(entry.note ?? "No trains").font(.headline).lineLimit(2) }
                 ForEach(entry.trains) { d in
                     HStack {
                         Text(label(d)).font(.headline)
