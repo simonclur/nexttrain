@@ -26,7 +26,7 @@ struct Provider: TimelineProvider {
 
     /// One entry per upcoming departure so the list advances by itself even when offline.
     private func entries(live: Bool) async -> [TrainEntry] {
-        await AppConfig.refreshTimetableIfStaleReturningChange()
+        // No timetable download here: widget extensions have tight memory/time limits. Uses the bundled DB.
         guard let tt = TimetableStore.open() else { return [] }
         let rt = live ? await RealtimeClient().fetch() : [:]
         guard let snap = try? tt.snapshot(config: AppConfig.commute, rt: rt), let r = snap.routes[snap.primary]
