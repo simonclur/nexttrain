@@ -40,7 +40,10 @@ watch/
 │   │   ├── DirectionResolver.swift  shared to-work/to-home rule, LastFix, DirectionStore
 │   │   ├── Snapshot.swift       snapshot() + resolvedSnapshot(): both directions, nearest station, primary leg
 │   │   ├── TimetableStore.swift locate / download / swap the timetable DB
-│   │   └── TimetableSlimmer.swift inflate rail.db.z + keep only trips at your stations
+│   │   ├── TimetableSlimmer.swift inflate rail.db.z + keep only trips at your stations
+│   │   └── TimelineBuilder.swift  Snapshot -> DisplayEntry per upcoming departure (shared by every widget)
+│   ├── Sources/NextTrainUI/     shared SwiftUI views per information level (glance / list / detail)
+│   │   └── Views.swift          DepartureRow, TripStopsList, CompactTrainsView, Inline/Circular/CornerGlance
 │   └── Tests/NextTrainCoreTests/
 ├── NextTrainWatch/              the app target (SwiftUI)
 │   ├── NextTrainWatchApp.swift  @main entry

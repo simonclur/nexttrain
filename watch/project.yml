@@ -17,6 +17,8 @@ targets:
     sources: [NextTrainWatch, Shared]
     dependencies:
       - package: NextTrainCore
+      - package: NextTrainCore
+        product: NextTrainUI
       - target: NextTrainWidget
     info:
       path: NextTrainWatch/Info.plist
@@ -39,6 +41,8 @@ targets:
       - path: NextTrainWatch/watch.db
     dependencies:
       - package: NextTrainCore
+      - package: NextTrainCore
+        product: NextTrainUI
       - sdk: WidgetKit.framework
       - sdk: SwiftUI.framework
     info:

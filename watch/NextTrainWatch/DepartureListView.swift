@@ -1,5 +1,6 @@
 import SwiftUI
 import NextTrainCore
+import NextTrainUI
 
 struct DepartureListView: View {
     @StateObject private var model = DepartureModel()
@@ -12,7 +13,7 @@ struct DepartureListView: View {
                     if let snap = model.snapshot, let route = snap.routes[snap.primary] {
                         Section("\(route.origin) → \(route.destination)") {
                             ForEach(route.trains.filter { !$0.departed }.prefix(4)) { d in
-                                NavigationLink(value: d) { row(d, now: ctx.date) }
+                                NavigationLink(value: d) { DepartureRow(d, now: ctx.date) }
                             }
                         }
                     }
@@ -45,35 +46,10 @@ struct DepartureListView: View {
         default: return status
         }
     }
-
-    private func row(_ d: Departure, now: Date) -> some View {
-        VStack(alignment: .leading) {
-            HStack {
-                Text(Format.clock(d.time)).font(.headline)
-                Text(Format.relative(d.time, to: now)).foregroundStyle(.secondary)
-                Spacer()
-                if d.delayMin != 0 {
-                    Text(String(format: "%+dm", d.delayMin)).foregroundStyle(d.delayMin > 0 ? .red : .green)
-                }
-            }
-            Text("\(d.headsign)\(d.platform.isEmpty ? "" : " · pl.\(d.platform)") · arr \(Format.clock(d.arrive))")
-                .font(.caption2).foregroundStyle(.secondary)
-        }
-    }
 }
 
 struct TripDetailView: View {
     let departure: Departure
     let stops: [TripStop]
-
-    var body: some View {
-        List(stops) { s in
-            HStack {
-                Text(s.name)
-                Spacer()
-                Text(Format.clock(s.time)).foregroundStyle(.secondary)
-            }
-        }
-        .navigationTitle(departure.headsign)
-    }
+    var body: some View { TripStopsList(title: departure.headsign, stops: stops) }
 }

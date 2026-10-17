@@ -200,4 +200,20 @@ final class NextTrainCoreTests: XCTestCase {
         XCTAssertEqual(widget.primary, app.primary)
         XCTAssertEqual(widget.routes[.work]?.origin, app.routes[.work]?.origin)
     }
+
+    func testTimelineHasOneEntryPerDepartureAndAdvances() throws {
+        let (tt, home, work, now) = try fixture()
+        let cfg = CommuteConfig(home: home.name, work: work.name, fallback: (-27.4766, 153.0197))
+        let snap = try tt.snapshot(config: cfg, where: .home, now: now)
+        let entries = TimelineBuilder.entries(from: snap, now: now)
+        XCTAssertGreaterThan(entries.count, 1)
+        XCTAssertEqual(entries.first?.date, now)
+        XCTAssertEqual(entries.map(\.date), entries.map(\.date).sorted())
+        for e in entries {
+            XCTAssertLessThanOrEqual(e.trains.count, 3)
+            XCTAssertTrue(e.trains.allSatisfy { $0.time >= e.date })
+            XCTAssertEqual(e.direction, snap.primary)
+        }
+        XCTAssertEqual(TimelineBuilder.failure("x", now: now).note, "x")
+    }
 }
