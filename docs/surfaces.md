@@ -66,3 +66,7 @@ flowchart LR
 
 Solid arrows exist; dotted ones are planned. Build each view once per information level (glance = one train,
 list = 3-4 trains, detail = stops) and map it to families, rather than one design per surface.
+
+## Smart Stack relevance
+
+Each widget timeline entry carries a `TimelineEntryRelevance`: score 100 on weekdays 06:00-09:00 and 16:00-18:30 (Brisbane time), 10 otherwise, so watchOS promotes the widget in the Smart Stack around commute time. Taps open the app through a `nexttrain://home`, `work` or `auto` URL (the app does not yet act on the direction in the URL).

@@ -10,6 +10,17 @@ struct TrainEntry: TimelineEntry {
     let trains: [Departure]
     var note: String? = nil
     var direction: Direction? = nil
+
+    /// Smart Stack hint: promote the widget around the usual commute windows (06:00-09:00, 16:00-18:30).
+    var relevance: TimelineEntryRelevance? {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "Australia/Brisbane") ?? .current
+        let c = cal.dateComponents([.hour, .minute, .weekday], from: date)
+        let m = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+        let weekday = (2...6).contains(c.weekday ?? 1)
+        let peak = weekday && ((360...540).contains(m) || (960...1110).contains(m))
+        return TimelineEntryRelevance(score: peak ? 100 : 10, duration: 30 * 60)
+    }
 }
 
 struct Provider: TimelineProvider {
@@ -99,7 +110,9 @@ struct WidgetView: View {
 struct NextTrainWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "NextTrainWidget", provider: Provider()) { entry in
-            WidgetView(entry: entry).containerBackground(.fill.tertiary, for: .widget)
+            WidgetView(entry: entry)
+                .widgetURL(URL(string: "nexttrain://\(entry.direction?.rawValue ?? "auto")"))
+                .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Next train")
         .description("Next departures, offline from the timetable and live when online.")
