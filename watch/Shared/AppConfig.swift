@@ -9,6 +9,15 @@ enum AppConfig {
     /// added the App Groups capability to every target. nil = each process keeps its own direction state.
     static let appGroup: String? = nil
 
+    /// Selected trains and the alert on/off switch; shared like the direction state when an App Group is configured.
+    static var trackStore: TrackStore {
+        if let id = appGroup, FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil,
+           let defaults = UserDefaults(suiteName: id) {
+            return TrackStore(defaults: defaults)
+        }
+        return TrackStore()
+    }
+
     /// Direction state shared by app, widgets and intents when an App Group is configured and entitled.
     static var directionStore: DirectionStore {
         if let id = appGroup, FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil,

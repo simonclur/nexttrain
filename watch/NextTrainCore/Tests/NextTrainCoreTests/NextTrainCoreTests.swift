@@ -216,4 +216,50 @@ final class NextTrainCoreTests: XCTestCase {
         }
         XCTAssertEqual(TimelineBuilder.failure("x", now: now).note, "x")
     }
+
+    func testTrackedTrainAlertsRunFifteenToTenThenArrival() throws {
+        let (tt, home, work, now) = try fixture()
+        let cfg = CommuteConfig(home: home.name, work: work.name, fallback: (-27.4766, 153.0197))
+        let snap = try tt.snapshot(config: cfg, where: .home, now: now)
+        let r = snap.routes[.work]!
+        let d = r.trains.first { $0.time > now.addingTimeInterval(3600) }!
+        let t = TrackedTrain(d, direction: .work, origin: r.origin, destination: r.destination)
+        let plan = AlertPlanner.tracked(t, now: d.time.addingTimeInterval(-3600))
+        XCTAssertEqual(plan.count, 7)                       // 15,14,13,12,11,10 min + arrival
+        XCTAssertEqual(plan.first?.fire, d.time.addingTimeInterval(-15 * 60))
+        XCTAssertEqual(plan[5].fire, d.time.addingTimeInterval(-10 * 60))
+        XCTAssertTrue(plan.last!.title.hasPrefix("🚆 Arriving"))
+        // after the 12-minute mark only 11, 10 and the arrival alert remain
+        XCTAssertEqual(AlertPlanner.tracked(t, now: d.time.addingTimeInterval(-12 * 60 + 5)).count, 3)
+        XCTAssertTrue(t.isFinished(now: d.arrive.addingTimeInterval(61)))
+        XCTAssertFalse(t.isFinished(now: d.arrive))
+    }
+
+    func testTrackStoreSelectsTogglesAndDropsFinished() throws {
+        let (tt, home, work, now) = try fixture()
+        let cfg = CommuteConfig(home: home.name, work: work.name, fallback: (-27.4766, 153.0197))
+        let snap = try tt.snapshot(config: cfg, where: .home, now: now)
+        let r = snap.routes[.work]!
+        let d = r.trains.first { $0.time > now }!
+        let store = TrackStore(defaults: UserDefaults(suiteName: "nt.test.\(UUID().uuidString)")!)
+        let t = TrackedTrain(d, direction: .work, origin: r.origin, destination: r.destination)
+        store.toggle(t)
+        XCTAssertEqual(store.selectedDirection, .work)
+        XCTAssertEqual(store.update(from: snap, now: now).count, 1)
+        XCTAssertTrue(store.update(from: snap, now: d.arrive.addingTimeInterval(3600)).isEmpty)
+        store.toggle(t); store.toggle(t)
+        XCTAssertTrue(store.tracked.isEmpty)
+    }
+
+    func testCommuteAlertsFollowWindowAndWeekdays() {
+        // Saturday 17 Oct 2026 10:00 Brisbane: nothing; the next weekday window is Monday 19th
+        let cal = Brisbane.calendar
+        let sat = cal.date(from: DateComponents(year: 2026, month: 10, day: 17, hour: 10))!
+        let plan = AlertPlanner.commute(now: sat, days: 2) { _, d in ("t \(d.rawValue)", "b") }
+        XCTAssertFalse(plan.isEmpty)
+        let comps = plan.map { cal.dateComponents([.weekday, .hour, .minute], from: $0.fire) }
+        XCTAssertTrue(comps.allSatisfy { (2...6).contains($0.weekday!) })
+        XCTAssertEqual(plan.filter { $0.title == "t work" }.count, 5 * 1)   // 06:30..07:10 on Monday only
+        XCTAssertEqual(plan.first?.fire, cal.date(from: DateComponents(year: 2026, month: 10, day: 19, hour: 6, minute: 30)))
+    }
 }

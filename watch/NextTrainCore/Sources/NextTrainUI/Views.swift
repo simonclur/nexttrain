@@ -11,13 +11,19 @@ import NextTrainCore
 public struct DepartureRow: View {
     let departure: Departure
     let now: Date
-    public init(_ departure: Departure, now: Date) { self.departure = departure; self.now = now }
+    let selected: Bool
+    public init(_ departure: Departure, now: Date, selected: Bool = false) {
+        self.departure = departure; self.now = now; self.selected = selected
+    }
+
+    /// Selected train: bright green and bold with a tick, as in the Mac menu-bar app.
+    public static let selectedColour = Color(red: 0, green: 1, blue: 0.25)
 
     public var body: some View {
         VStack(alignment: .leading) {
             HStack {
-                Text(Format.clock(departure.time)).font(.headline)
-                Text(Format.relative(departure.time, to: now)).foregroundStyle(.secondary)
+                Text((selected ? "✓ " : "") + Format.clock(departure.time)).font(.headline)
+                Text(Format.relative(departure.time, to: now)).foregroundStyle(selected ? Self.selectedColour : .secondary)
                 Spacer()
                 if departure.delayMin != 0 {
                     Text(String(format: "%+dm", departure.delayMin))
@@ -26,6 +32,7 @@ public struct DepartureRow: View {
             }
             Text(detail).font(.caption2).foregroundStyle(.secondary)
         }
+        .foregroundStyle(selected ? Self.selectedColour : .primary)
     }
 
     private var detail: String {
@@ -34,21 +41,49 @@ public struct DepartureRow: View {
     }
 }
 
-/// Detail level: every stop of a trip.
-public struct TripStopsList: View {
+/// Detail level: every stop of a trip. Boarding station blue, the stop the train has just reached green,
+/// stops already passed grey (same colours as the Mac menu-bar app).
+public struct TripStopsList<Header: View>: View {
     let title: String
     let stops: [TripStop]
-    public init(title: String, stops: [TripStop]) { self.title = title; self.stops = stops }
+    let origin: String?
+    let now: Date
+    let header: Header
+
+    public init(title: String, stops: [TripStop], origin: String? = nil, now: Date = Date(),
+                @ViewBuilder header: () -> Header) {
+        self.title = title; self.stops = stops; self.origin = origin; self.now = now; self.header = header()
+    }
 
     public var body: some View {
-        List(stops) { s in
-            HStack {
-                Text(s.name)
-                Spacer()
-                Text(Format.clock(s.time)).foregroundStyle(.secondary)
+        let current = stops.lastIndex { $0.time <= now }
+        List {
+            Section { header }
+            Section {
+                ForEach(Array(stops.enumerated()), id: \.element.id) { i, s in
+                    HStack {
+                        Text(s.name)
+                        Spacer()
+                        Text(Format.clock(s.time))
+                    }
+                    .foregroundStyle(colour(i, s, current))
+                    .fontWeight(s.name == origin || i == current ? .semibold : .regular)
+                }
             }
         }
         .navigationTitle(title)
+    }
+
+    private func colour(_ i: Int, _ s: TripStop, _ current: Int?) -> Color {
+        if s.name == origin { return .blue }
+        if i == current { return .green }
+        return s.time <= now ? .secondary : .primary
+    }
+}
+
+extension TripStopsList where Header == EmptyView {
+    public init(title: String, stops: [TripStop], origin: String? = nil, now: Date = Date()) {
+        self.init(title: title, stops: stops, origin: origin, now: now) { EmptyView() }
     }
 }
 

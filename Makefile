@@ -36,7 +36,7 @@ watch-data: watch-config ## build the slim timetable and bundle it into the watc
 	$(PY) tools/export_watch_db.py watch/NextTrainWatch/watch.db
 
 watch-project: ## generate watch/NextTrain.xcodeproj from watch/project.yml (needs: brew install xcodegen)
-	cd watch && xcodegen generate
+	cd watch && xcodegen generate && rm -rf NextTrain.xcodeproj/xcuserdata
 
 watch-test: ## run the Swift package tests (DB-backed tests need NEXTTRAIN_DB, see docs/watch-app.md)
 	cd watch/NextTrainCore && NEXTTRAIN_HOME="$(HOME_STN)" NEXTTRAIN_WORK="$(WORK_STN)" swift test --scratch-path $(SCRATCH)

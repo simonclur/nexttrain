@@ -18,6 +18,9 @@ struct NextTrainMacApp: App {
     }
 
     private var title: String {
+        if let t = model.tracked.values.min(by: { $0.depart < $1.depart }) {
+            return (model.alertsActive ? "" : "⏸ ") + Format.trackedTitle(t, now: Date())
+        }
         guard let s = model.snapshot, let d = s.routes[s.primary]?.trains.first(where: { !$0.departed }) else { return "NextTrain" }
         return Format.clock(d.time) + TimelineBuilder.delayText(d)
     }
@@ -33,11 +36,20 @@ struct MenuContent: View {
                 Text("\(route.origin) → \(route.destination)").font(.headline)
                 TimelineView(.periodic(from: .now, by: 30)) { ctx in
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(route.trains.filter { !$0.departed }.prefix(6)) { DepartureRow($0, now: ctx.date) }
+                        ForEach(route.trains.filter { !$0.departed }.prefix(6)) { d in
+                            DepartureRow(d, now: ctx.date, selected: model.isTracked(d))
+                                .contentShape(Rectangle())
+                                .onTapGesture { Task { await model.toggleTrain(d) } }
+                        }
                     }
                 }
+                Text("Click a train to select it (✓) for reminders 15–10 min before and on arrival.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Divider()
                 HStack {
+                    Button(model.alertsActive ? "Pause alerts" : "Resume alerts") {
+                        Task { await model.setAlertsActive(!model.alertsActive) }
+                    }
                     Button("Switch to \(snap.primary.other == .work ? "work" : "home")") {
                         Task { await model.setDirection(snap.primary.other) }
                     }
