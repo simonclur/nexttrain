@@ -1,0 +1,51 @@
+name: Watch app
+
+# Builds the watch app for the simulator and runs the Swift package tests.
+# No signing is needed (simulator only); installing on a real watch stays a local Xcode step.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["watch/**", "tools/**", "desktop/build_data.py", "desktop/core.py", "desktop/paths.py", ".github/workflows/watch.yml"]
+  push:
+    branches: [main]
+    paths: ["watch/**", "tools/**", "desktop/build_data.py", "desktop/core.py", "desktop/paths.py", ".github/workflows/watch.yml"]
+
+concurrency:
+  group: watch-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: Python environment
+        run: make venv
+
+      - name: Generic station config (the real one is personal and git-ignored)
+        run: make watch-config
+
+      - name: Build the timetable data
+        # desktop/config.json is created from config.example.json (Central / Roma Street) on first use
+        run: |
+          make watch-data
+          .venv/bin/python tools/publish_timetable.py rail.db.z
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Swift package tests
+        env:
+          NEXTTRAIN_DB: ${{ github.workspace }}/watch/NextTrainWatch/watch.db
+          NEXTTRAIN_ARCHIVE: ${{ github.workspace }}/rail.db.z
+          NEXTTRAIN_HOME: Central
+          NEXTTRAIN_WORK: Roma Street
+        run: make watch-test
+
+      - name: Build the watch app for the simulator
+        run: make watch-build DEST='generic/platform=watchOS Simulator'

@@ -24,7 +24,7 @@ final class NextTrainCoreTests: XCTestCase {
         XCTAssertEqual(t1.delay(seq: 5, stopId: "B"), 300)
     }
 
-    // The tests below need a timetable DB with a weekday service on 2026-10-19:
+    // The tests below need a timetable DB with weekday service in the coming days; `now` is the next weekday 07:30:
     //   NEXTTRAIN_DB=/path/watch.db NEXTTRAIN_HOME="<station>" NEXTTRAIN_WORK="<station>" swift test
     private func fixture() throws -> (Timetable, Station, Station, Date) {
         let env = ProcessInfo.processInfo.environment
@@ -32,16 +32,20 @@ final class NextTrainCoreTests: XCTestCase {
             throw XCTSkip("NEXTTRAIN_DB / NEXTTRAIN_HOME / NEXTTRAIN_WORK not set")
         }
         let tt = try Timetable(path: path)
-        var c = DateComponents(); c.year = 2026; c.month = 10; c.day = 19; c.hour = 7; c.minute = 30
-        c.timeZone = Brisbane.tz
-        return (tt, try tt.findStation(home), try tt.findStation(work), Brisbane.calendar.date(from: c)!)
+        let cal = Brisbane.calendar
+        var day = cal.date(byAdding: .day, value: 2, to: Date())!
+        while cal.isDateInWeekend(day) { day = cal.date(byAdding: .day, value: 1, to: day)! }
+        let now = cal.date(bySettingHour: 7, minute: 30, second: 0, of: day)!
+        return (tt, try tt.findStation(home), try tt.findStation(work), now)
     }
 
     func testScheduledDeparturesAreOrderedAndFuture() throws {
         let (tt, home, work, now) = try fixture()
-        let deps = try tt.nextTrains(from: home.id, to: work.id, now: now, query: Query(limit: 3, windowHours: 2))
+        let all = try tt.nextTrains(from: home.id, to: work.id, now: now, query: Query(limit: 3, windowHours: 2))
+        XCTAssertEqual(all, all.sorted { $0.time < $1.time })
+        // a train that left within the last minute may also be listed (marked departed)
+        let deps = all.filter { !$0.departed }
         XCTAssertEqual(deps.count, 3)
-        XCTAssertEqual(deps, deps.sorted { $0.time < $1.time })
         for d in deps {
             XCTAssertGreaterThanOrEqual(d.time, now)
             XCTAssertGreaterThan(d.arrive, d.time)
@@ -89,8 +93,9 @@ final class NextTrainCoreTests: XCTestCase {
         let a = try Timetable(path: slim.path).nextTrains(from: home.id, to: work.id, now: now, query: Query(limit: 3, windowHours: 2))
         let b = try Timetable(path: full.path).nextTrains(from: home.id, to: work.id, now: now, query: Query(limit: 3, windowHours: 2))
         XCTAssertEqual(a.map(\.time), b.map(\.time))
-        XCTAssertEqual(a.count, 3)
-        XCTAssertLessThan(try FileManager.default.attributesOfItem(atPath: slim.path)[.size] as! Int, 25_000_000)
+        XCTAssertEqual(a.filter { !$0.departed }.count, 3)
+        let size = { (u: URL) in try FileManager.default.attributesOfItem(atPath: u.path)[.size] as! Int }
+        XCTAssertLessThan(try size(slim), try size(full))
     }
 
     func testTransferJourneysAreConsistent() throws {

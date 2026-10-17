@@ -1,6 +1,7 @@
 # Common tasks. Run `make help`. See docs/ for the full explanation of each.
 PY        ?= .venv/bin/python
 SIM       ?= Apple Watch Series 12 (46mm)
+DEST      ?= platform=watchOS Simulator,name=$(SIM)
 # Stations used by the Swift tests (any two stations on the same line; never commit personal ones)
 HOME_STN  ?= Central
 WORK_STN  ?= Roma Street
@@ -42,4 +43,4 @@ watch-test: ## run the Swift package tests (DB-backed tests need NEXTTRAIN_DB, s
 
 watch-build: watch-project ## build the watch app for the simulator
 	cd watch && xcodebuild -project NextTrain.xcodeproj -scheme NextTrainWatch \
-	  -destination 'platform=watchOS Simulator,name=$(SIM)' -derivedDataPath /tmp/ntdd CODE_SIGNING_ALLOWED=NO build
+	  -destination '$(DEST)' -derivedDataPath /tmp/ntdd CODE_SIGNING_ALLOWED=NO build

@@ -11,3 +11,4 @@ desktop/config.json
 
 # watch app: personal station config (see watch/LocalConfig.example.swift)
 watch/Shared/LocalConfig.swift
+rail.db.z
