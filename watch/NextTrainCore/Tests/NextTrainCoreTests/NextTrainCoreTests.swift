@@ -90,6 +90,33 @@ final class NextTrainCoreTests: XCTestCase {
         let b = try Timetable(path: full.path).nextTrains(from: home.id, to: work.id, now: now, query: Query(limit: 3, windowHours: 2))
         XCTAssertEqual(a.map(\.time), b.map(\.time))
         XCTAssertEqual(a.count, 3)
-        XCTAssertLessThan(try FileManager.default.attributesOfItem(atPath: slim.path)[.size] as! Int, 10_000_000)
+        XCTAssertLessThan(try FileManager.default.attributesOfItem(atPath: slim.path)[.size] as! Int, 25_000_000)
+    }
+
+    func testTransferJourneysAreConsistent() throws {
+        let (tt, home, work, now) = try fixture()
+        let js = try tt.transferJourneys(from: home.id, to: work.id, now: now, query: Query(limit: 5, windowHours: 2))
+        for j in js {
+            XCTAssertNotNil(j.via)
+            XCTAssertNotNil(j.leg2)
+            XCTAssertGreaterThan(j.arrive, j.time)
+            XCTAssertTrue(j.headsign.hasPrefix("change at \(j.via!)"))
+        }
+        XCTAssertEqual(js, js.sorted { $0.time < $1.time })
+    }
+
+    /// Needs the Oct 2026 timetable snapshot (Saturday trackwork: railbus + train). Matches Python core.journeys.
+    func testTrackworkSaturdayNeedsAChange() throws {
+        guard ProcessInfo.processInfo.environment["NEXTTRAIN_CHANGE_PARITY"] != nil else {
+            throw XCTSkip("NEXTTRAIN_CHANGE_PARITY not set")
+        }
+        let (tt, home, work, _) = try fixture()
+        var c = DateComponents(); c.year = 2026; c.month = 10; c.day = 17; c.hour = 13; c.minute = 30
+        c.timeZone = Brisbane.tz
+        let now = Brisbane.calendar.date(from: c)!
+        let js = try tt.journeys(from: home.id, to: work.id, now: now, query: Query(limit: 3, windowHours: 4))
+        XCTAssertEqual(js.map { Format.clock($0.time) }, ["13:48", "14:18", "14:48"])
+        XCTAssertEqual(js.map { Format.clock($0.arrive) }, ["14:59", "15:29", "15:59"])
+        XCTAssertEqual(js.first?.via, "Northgate")
     }
 }

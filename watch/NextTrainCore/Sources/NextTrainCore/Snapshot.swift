@@ -53,7 +53,7 @@ extension Timetable {
         let dest = dests[primary]!
         var best: (key: Date, name: String, dist: Double, trains: [Departure])?
         for (stn, dist) in stations where stn.id != dest.id {
-            let trains = try nextTrains(from: stn.id, to: dest.id, now: now, rt: rt, query: q)
+            let trains = try journeys(from: stn.id, to: dest.id, now: now, rt: rt, query: q)
             let upcoming = trains.filter { !$0.departed }
             if upcoming.isEmpty { continue }
             let walkMin = dist / 0.08   // ~4.8 km/h
@@ -68,7 +68,7 @@ extension Timetable {
         // return leg starts where the primary leg ends
         let other = primary.other
         routes[other] = Route(destination: dests[other]!.name, origin: dest.name, distanceKm: nil,
-                              trains: try nextTrains(from: dest.id, to: dests[other]!.id, now: now, rt: rt, query: q),
+                              trains: try journeys(from: dest.id, to: dests[other]!.id, now: now, rt: rt, query: q),
                               assumed: true)
         return Snapshot(primary: primary, routes: routes)
     }

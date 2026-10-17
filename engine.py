@@ -59,7 +59,7 @@ class Engine:
                 "headsign": train["headsign"], "last_min": None, "arr_alerted": False,
                 "dest_seq": train["dest_seq"], "dest_stop": train["dest_stop"],
                 "arrive_sched": train["arrive_sched"], "arrive": train["arrive"].isoformat(),
-                "seq": train["seq"], "midnight": train["midnight"]}
+                "seq": train["seq"], "midnight": train["midnight"], "leg2": train.get("leg2")}
             self.state["active"] = True
         self.save()
 
@@ -80,7 +80,7 @@ class Engine:
                 tgt["time"] = t["time"].isoformat()
         when = datetime.fromisoformat(tgt["time"])
         mins = (when - now).total_seconds() / 60
-        arrive = core.live_arrival(tgt["trip_id"], tgt["dest_seq"], tgt["dest_stop"], tgt["arrive_sched"])
+        arrive = core.live_arrival(tgt["trip_id"], tgt["dest_seq"], tgt["dest_stop"], tgt["arrive_sched"], tgt.get("leg2"))
         tgt["arrive"] = arrive.isoformat()
         arr_mins = (arrive - now).total_seconds() / 60
         if arr_mins < -1:

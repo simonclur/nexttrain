@@ -32,7 +32,7 @@ enum TimetableSlimmer {
             CREATE TABLE calendar(service_id TEXT, dow TEXT, start TEXT, end TEXT);
             CREATE TABLE calendar_dates(service_id TEXT, date TEXT, type INT);
             CREATE TEMP TABLE keep AS SELECT trip_id FROM src.st WHERE station IN (\(list))
-                GROUP BY trip_id HAVING COUNT(DISTINCT station) = \(ids.count);
+                GROUP BY trip_id;
             INSERT INTO st SELECT * FROM src.st WHERE trip_id IN (SELECT trip_id FROM keep);
             INSERT INTO trips SELECT * FROM src.trips WHERE trip_id IN (SELECT trip_id FROM keep);
             INSERT INTO stations SELECT * FROM src.stations WHERE id IN (SELECT station FROM st);

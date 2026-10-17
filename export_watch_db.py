@@ -1,4 +1,4 @@
-"""Build a compact timetable DB for the watch app: only trips that call at both commute stations.
+"""Build a compact timetable DB for the watch app: trips that call at either commute station (so journeys with one change can be found).
 
 Same schema as rail.db, so the Swift NextTrainCore package reads it unchanged.
 Usage: .venv/bin/python export_watch_db.py [output.db]
@@ -21,7 +21,7 @@ def main(out=None):
         src.execute(sql.replace("CREATE TABLE ", "CREATE TABLE w.", 1)
                     if sql.startswith("CREATE TABLE") else sql.replace("INDEX ", "INDEX w.", 1))
     src.execute("""CREATE TEMP TABLE keep AS SELECT trip_id FROM st WHERE station IN (?, ?)
-                   GROUP BY trip_id HAVING COUNT(DISTINCT station) = 2""", ids)
+                   GROUP BY trip_id""", ids)
     src.execute("INSERT INTO w.st SELECT * FROM st WHERE trip_id IN (SELECT trip_id FROM keep)")
     src.execute("INSERT INTO w.trips SELECT * FROM trips WHERE trip_id IN (SELECT trip_id FROM keep)")
     src.execute("INSERT INTO w.stations SELECT * FROM stations WHERE id IN (SELECT station FROM w.st)")

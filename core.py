@@ -193,6 +193,96 @@ def next_trains(db, origin_id, dest_id, now=None, limit=3, window_hours=4, past_
     return past + upcoming[:limit]
 
 
+def transfer_journeys(db, origin_id, dest_id, now=None, limit=3, window_hours=4, past_minutes=0, min_change=180):
+    """One-change journeys origin -> interchange -> dest, as train dicts (first leg's trip_id/platform/seq, final arrival,
+    plus 'via' and 'leg2'). Used when no direct train exists, e.g. a railbus section during trackwork."""
+    import bisect
+    now = now or datetime.now(TZ)
+    rt = realtime()
+    names = dict(db.execute("SELECT id, name FROM stations"))
+    cand = []
+    for offset in (1, 0, -1):
+        day = (now - timedelta(days=offset)).date()
+        services = active_services(db, datetime.combine(day, datetime.min.time()))
+        if not services:
+            continue
+        midnight = datetime.combine(day, datetime.min.time(), tzinfo=TZ)
+        base = int((now - midnight).total_seconds())
+        lo, hi = base - past_minutes * 60, base + window_hours * 3600
+        # second legs: every stop that precedes the destination on a trip, grouped by interchange station
+        into = {}
+        for x_stn, trip, seq, stop, plat, dep, head, svc, dseq, dstop, ddep in db.execute(
+                """SELECT x.station, x.trip_id, x.seq, x.stop_id, x.platform, x.dep, t.headsign, t.service_id,
+                          d.seq, d.stop_id, d.dep
+                   FROM st d JOIN st x ON x.trip_id = d.trip_id AND x.seq < d.seq
+                   JOIN trips t ON t.trip_id = d.trip_id
+                   WHERE d.station = ? AND x.dep BETWEEN ? AND ?""", (dest_id, lo, hi + 4 * 3600)):
+            if svc in services and rt.get(trip, {}).get("cancelled") is not True:
+                into.setdefault(x_stn, []).append((dep, trip, seq, stop, plat, head, dseq, dstop, ddep))
+        for lst in into.values():
+            lst.sort()
+        keys = {k: [r[0] for r in v] for k, v in into.items()}
+        best = {}
+        for trip, seq, stop, plat, dep, head, svc, x_stn, xseq, xstop, xdep in db.execute(
+                """SELECT a.trip_id, a.seq, a.stop_id, a.platform, a.dep, t.headsign, t.service_id,
+                          x.station, x.seq, x.stop_id, x.dep
+                   FROM st a JOIN trips t ON t.trip_id = a.trip_id
+                   JOIN st x ON x.trip_id = a.trip_id AND x.seq > a.seq
+                   WHERE a.station = ? AND a.dep BETWEEN ? AND ?""", (origin_id, lo - 1800, hi)):
+            if svc not in services or x_stn == dest_id or x_stn not in into:
+                continue
+            if rt.get(trip, {}).get("cancelled") is True:
+                continue
+            lst = into[x_stn]
+            i = bisect.bisect_left(keys[x_stn], xdep + min_change)
+            while i < len(lst) and lst[i][1] == trip:
+                i += 1
+            if i >= len(lst):
+                continue
+            b = lst[i]
+            if (trip, seq) not in best or b[8] < best[(trip, seq)][0]:
+                best[(trip, seq)] = (b[8], midnight, dep, plat, head, stop, x_stn, xseq, xstop, xdep, b)
+        for (trip, seq), (_, mid, dep, plat, head, stop, x_stn, xseq, xstop, xdep, b) in best.items():
+            cand.append((mid, trip, seq, dep, plat, stop, x_stn, xseq, xstop, xdep, b))
+    results = []
+    for mid, trip, seq, dep, plat, stop, x_stn, xseq, xstop, xdep, b in cand:
+        bdep, btrip, bseq, bstop, bplat, bhead, dseq, dstop, ddep = b
+        ia, ib = rt.get(trip), rt.get(btrip)
+        delay = _delay(ia, seq, stop) if ia else 0
+        when = mid + timedelta(seconds=dep + delay)
+        if when < now - timedelta(minutes=max(past_minutes, 1)):
+            continue
+        arrive = mid + timedelta(seconds=ddep + (_delay(ib, dseq, dstop) if ib else 0))
+        change = mid + timedelta(seconds=bdep + (_delay(ib, bseq, bstop) if ib else 0))
+        if change < mid + timedelta(seconds=xdep + (_delay(ia, xseq, xstop) if ia else 0)):
+            continue  # delayed first leg misses the connection
+        results.append({"trip_id": trip, "time": when, "delay_min": round(delay / 60), "platform": plat,
+                        "headsign": f"change at {names[x_stn]} → {bhead.replace(' station', '')}", "via": names[x_stn],
+                        "live": bool(ia or ib), "departed": when < now, "arrive": arrive, "dest_seq": xseq,
+                        "dest_stop": xstop, "seq": seq, "midnight": mid.isoformat(),
+                        "arrive_sched": (mid + timedelta(seconds=ddep)).isoformat(),
+                        "leg2": {"trip_id": btrip, "dest_seq": dseq, "dest_stop": dstop,
+                                 "arrive_sched": (mid + timedelta(seconds=ddep)).isoformat()}})
+    # drop journeys beaten by a later departure that also arrives no later
+    results.sort(key=lambda r: (r["time"], r["arrive"]))
+    kept, best_arrive = [], None
+    for r in reversed(results):
+        if best_arrive is None or r["arrive"] < best_arrive:
+            kept.append(r)
+            best_arrive = r["arrive"]
+    kept.reverse()
+    past = [r for r in kept if r["departed"]]
+    return past + [r for r in kept if not r["departed"]][:limit]
+
+
+def journeys(db, origin_id, dest_id, **kw):
+    """Direct trains; if none are upcoming, one-change journeys instead."""
+    direct = next_trains(db, origin_id, dest_id, **kw)
+    if any(not t["departed"] for t in direct):
+        return direct
+    return direct + transfer_journeys(db, origin_id, dest_id, **kw)
+
+
 def trip_stops(db, trip_id, from_seq, to_seq, midnight_iso):
     """[(station name, live-adjusted datetime, platform)] for a trip between two stop sequences, inclusive."""
     midnight = datetime.fromisoformat(midnight_iso)
@@ -205,8 +295,11 @@ def trip_stops(db, trip_id, from_seq, to_seq, midnight_iso):
             for n, dep, plat, seq, sid in rows]
 
 
-def live_arrival(trip_id, dest_seq, dest_stop, sched_iso):
-    """Current estimated arrival at the destination stop for a (possibly already departed) trip."""
+def live_arrival(trip_id, dest_seq, dest_stop, sched_iso, leg2=None):
+    """Current estimated arrival at the destination stop for a (possibly already departed) trip.
+    For a journey with a change, `leg2` carries the final leg's trip/stop."""
+    if leg2:
+        trip_id, dest_seq, dest_stop, sched_iso = leg2["trip_id"], leg2["dest_seq"], leg2["dest_stop"], leg2["arrive_sched"]
     sched = datetime.fromisoformat(sched_iso)
     info = realtime().get(trip_id)
     return sched + timedelta(seconds=_delay(info, dest_seq, dest_stop) if info else 0)
@@ -258,7 +351,7 @@ def snapshot(cfg=None, selected_label=None, where="auto"):
     for (sid, name, _, _), dist in stations:
         if sid == dest[0]:
             continue
-        trains = next_trains(db, sid, dest[0], **kw)
+        trains = journeys(db, sid, dest[0], **kw)
         upcoming = [t for t in trains if not t["departed"]]
         if not upcoming:
             continue
@@ -274,7 +367,7 @@ def snapshot(cfg=None, selected_label=None, where="auto"):
     # return leg: starts where the primary leg ends
     start = dests[primary]
     out["routes"][other] = {"destination": dests[other][1], "origin": start[1], "distance_km": None,
-                            "trains": next_trains(db, start[0], dests[other][0], **kw), "assumed": True}
+                            "trains": journeys(db, start[0], dests[other][0], **kw), "assumed": True}
     return out
 
 

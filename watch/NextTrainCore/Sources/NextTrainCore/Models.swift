@@ -7,6 +7,14 @@ public struct Station: Hashable, Sendable {
     public let lon: Double
 }
 
+/// Final leg of a journey with one change.
+public struct Leg2: Hashable, Sendable {
+    public let tripId: String
+    public let destSeq: Int
+    public let destStop: String
+    public let arriveScheduled: Date
+}
+
 public struct Departure: Identifiable, Hashable, Sendable {
     public var id: String { "\(tripId)-\(seq)" }
     public let tripId: String
@@ -22,6 +30,8 @@ public struct Departure: Identifiable, Hashable, Sendable {
     public let destSeq: Int
     public let destStop: String
     public let midnight: Date        // start of the service day the trip belongs to
+    public let via: String?          // interchange station when the journey needs a change
+    public let leg2: Leg2?
 }
 
 public enum NTError: Error { case database(String), noStation(String) }
