@@ -9,7 +9,7 @@ struct TrainEntry: TimelineEntry {
 }
 
 struct Provider: TimelineProvider {
-    func placeholder(in context: Context) -> TrainEntry { TrainEntry(date: .now, route: "", trains: []) }
+    func placeholder(in context: Context) -> TrainEntry { TrainEntry(date: .now, route: "NextTrain", trains: []) }
 
     func getSnapshot(in context: Context, completion: @escaping (TrainEntry) -> Void) {
         Task { completion((await entries(live: false)).first ?? placeholder(in: context)) }
@@ -29,7 +29,10 @@ struct Provider: TimelineProvider {
         // No timetable download here: widget extensions have tight memory/time limits. Uses the bundled DB.
         guard let tt = TimetableStore.open() else { return [] }
         let rt = live ? await RealtimeClient().fetch() : [:]
-        guard let snap = try? tt.snapshot(config: AppConfig.commute, rt: rt), let r = snap.routes[snap.primary]
+        // Small query window keeps memory and time within the extension limits.
+        var cfg = AppConfig.commute
+        cfg.pastMinutes = 0; cfg.maxFuture = 8; cfg.futureHours = 6; cfg.candidateStations = 2
+        guard let snap = try? tt.snapshot(config: cfg, rt: rt), let r = snap.routes[snap.primary]
         else { return [] }
         let upcoming = r.trains.filter { !$0.departed }
         let route = "\(r.origin) → \(r.destination)"
