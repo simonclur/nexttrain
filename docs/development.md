@@ -73,7 +73,7 @@ The journey engine exists twice. When you change it:
 | Area | Command |
 |---|---|
 | Swift package | `make watch-test` (set `NEXTTRAIN_DB` etc. for DB-backed tests, see [watch-app.md](watch-app.md#tests)) |
-| Watch app compiles | `make watch-build` |
+| Watch app compiles | `make watch-build` (CI runs this and the tests: `.github/workflows/watch.yml`) |
 | Desktop app | run it (`make desktop-run`) and watch the log; there is no automated Python test suite yet |
 | Installer build | `make desktop-mac` |
 
@@ -84,7 +84,7 @@ There is no automated UI test for either app. Verify the watch app visually in t
 - Windows build untested on real Windows.
 - macOS build is ad-hoc signed (not notarised); needs a paid Developer ID for friction-free sharing.
 - Watch: free-account 7-day expiry; complication timetable only updates on reinstall (no App Groups); no GPS in the widget.
-- No Python test suite and no watch CI job; adding a macOS runner doing `swift test` + `xcodebuild` would be the next step.
+- No Python test suite yet; the watch has CI (`watch.yml`) but the desktop apps are only built, not tested, in CI.
 - Possible: start-at-login on desktop, iPhone companion, windowed "scroll to later trains" on the watch.
 
 ## Troubleshooting pointers

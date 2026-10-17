@@ -231,6 +231,13 @@ cd watch/NextTrainCore && \
 Tests without their env vars are skipped, not failed. **Always pass `--scratch-path` outside the project folder** when
 the repo lives in Dropbox/iCloud: file-sync extended attributes break code signing of the test bundle.
 
+### Continuous integration
+
+`.github/workflows/watch.yml` runs the above on a macOS runner for every PR/push touching the watch or its data tools:
+it builds a generic timetable, runs `make watch-test` with the DB and archive env vars set, then
+`make watch-build DEST='generic/platform=watchOS Simulator'`. Reproduce locally with the same commands (use your own
+`HOME_STN`/`WORK_STN` if your local `watch.db` was built for your own stations). See [pipeline-and-ci.md](pipeline-and-ci.md#ci-workflows-githubworkflows).
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |

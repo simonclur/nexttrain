@@ -51,7 +51,7 @@ Open ideas (see also [development.md](development.md#known-limitations--ideas)):
 2. Start-at-login (launchd plist on macOS, Startup shortcut on Windows).
 3. Auto location mode heuristics (time of day) while GPS is unreliable; Windows location via WinRT.
 4. Developer ID signing + notarisation for friction-free sharing.
-5. Watch: tune widget refresh; CI job for `swift test` + simulator build; iPhone companion.
+5. Watch: tune widget refresh; iPhone companion; a Python test suite for the desktop core.
 6. Untested in live UI over a full ride: arrival/reminder notifications, scroll/click edge cases.
 
 ## 5. Conventions

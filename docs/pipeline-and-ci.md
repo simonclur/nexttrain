@@ -61,15 +61,23 @@ flowchart LR
       BW --> BA["workflow artifacts"]
       BM --> BA
     end
+    subgraph watch.yml
+      W1["PR / push to main touching watch/, tools/, core.py...<br/>or manual"] --> W2["macos-15: make venv,<br/>make watch-config, make watch-data"]
+      W2 --> W3["tools/publish_timetable.py -> rail.db.z"]
+      W3 --> W4["make watch-test<br/>(DB + archive tests)"]
+      W4 --> W5["make watch-build<br/>generic watchOS Simulator"]
+    end
 ```
 
 | Workflow | Trigger | Output |
 |---|---|---|
 | `timetable.yml` | weekly cron, manual | Release `timetable` asset `rail.db.z` (created on first run if missing) |
 | `build.yml` | manual, tags `v*` | Artifacts `NextTrain-windows` (zip) and `NextTrain-mac` (dmg) |
+| `watch.yml` | PRs and pushes to `main` that touch `watch/`, `tools/` or the shared Python, plus manual | Pass/fail: Swift tests + simulator build (~3 min, no artifacts) |
 
-There is **no CI for the watch app**: it is built locally in Xcode because device signing needs your Apple ID.
-(Possible future work: a simulator build + `swift test` job on `macos-latest`.)
+`watch.yml` uses the generic example stations (Central / Roma Street) and a freshly built timetable, so it needs no
+secrets and no signing. It does **not** install on a device: that stays a local Xcode step because it needs your
+Apple ID. Tests that depend on the date use "the next weekday 07:30", so they keep working as the feed rolls over.
 
 ## Deployment summary
 
