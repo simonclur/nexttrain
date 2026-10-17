@@ -15,6 +15,15 @@ struct ContentView: View {
                         Section("\(route.origin) → \(route.destination)") {
                             ForEach(route.trains.filter { !$0.departed }.prefix(8)) { d in
                                 NavigationLink(value: d) { DepartureRow(d, now: ctx.date) }
+                                    .contextMenu {
+                                        Button(TrainTracker.isTracking(d) ? "Stop tracking" : "Track this train",
+                                               systemImage: "tram.fill") {
+                                            Task {
+                                                if TrainTracker.isTracking(d) { await TrainTracker.endAll() }
+                                                else { await TrainTracker.start(d, route: "\(route.origin) → \(route.destination)") }
+                                            }
+                                        }
+                                    }
                             }
                         }
                         Section {
@@ -36,6 +45,9 @@ struct ContentView: View {
             }
         }
         .task { await model.refresh() }
+        .onChange(of: model.updatedAt) { _, _ in
+            Task { await TrainTracker.update(from: model.snapshot?.routes.values.flatMap(\.trains) ?? []) }
+        }
         .refreshable { await model.refresh() }
     }
 

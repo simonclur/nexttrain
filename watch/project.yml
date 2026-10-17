@@ -64,7 +64,7 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: NextTrainiOS
-        excludes: [NextTrainControl.swift]
+        excludes: [NextTrainControl.swift, TrainLiveActivity.swift]
       - path: Shared
       - path: NextTrainWatch/watch.db
     dependencies:
@@ -76,6 +76,7 @@ targets:
       path: NextTrainiOS/Info.plist
       properties:
         CFBundleDisplayName: NextTrain
+        NSSupportsLiveActivities: true
         NSLocationWhenInUseUsageDescription: Finds the nearest station.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -90,6 +91,7 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: NextTrainiOS/NextTrainControl.swift
+      - path: NextTrainiOS/TrainLiveActivity.swift
       - path: NextTrainWidget
         excludes: ["Info*.plist", "WatchBundle.swift"]
       - path: Shared

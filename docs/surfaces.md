@@ -49,7 +49,7 @@ extension read it (`NSWidgetWantsLocation`); this must be verified on a real dev
 | iPhone app (`NextTrainiOS`) | iOS 17+ | user opens it | list of 8, trip detail, direction switch, pull to refresh | same engine | ✅ simulator |
 | Home Screen widgets small/medium (`NextTrainiOSWidget`) | iOS 17+ | on a page | tap opens app | next train(s) | ✅ builds; large + StandBy 🟡 |
 | Lock Screen widgets | iOS 17+ | lock screen | tap | circular / rectangular / inline | ✅ builds |
-| Live Activity, Dynamic Island | iOS 16.2+, watch mirror | while tracking one train | tap | countdown, delay, platform | 🟡 |
+| Live Activity, Dynamic Island (`TrainLiveActivity`) | iOS 16.2+, watch mirror | after long-press > "Track this train" in the iPhone app | tap | countdown, delay, platform, arrival | ✅ builds, untested on device |
 | Control Centre control (`NextTrainControl`) | iOS 18 | on demand, also Lock Screen / Action button slot | tap runs `ToggleDirectionIntent` | switch direction | ✅ builds |
 | Siri / Shortcuts / Action button | iOS 17+, watchOS 10+ | on demand | `NextTrainIntent` ("Next train in NextTrain"), `ToggleDirectionIntent` | spoken next train / switch | ✅ builds, untested on device |
 | Mac widgets | macOS 14+ | desktop, Notification Centre | `Button(intent:)` | next trains | 🟡 |
@@ -60,7 +60,7 @@ flowchart LR
     CORE["NextTrainCore<br/>DirectionResolver, Timetable,<br/>Realtime, Snapshot"] --> W[Watch app]
     CORE --> WC["Watch widgets<br/>(4 accessory families)"]
     CORE --> IP[iPhone app + widgets]
-    CORE -.-> LA[Live Activity]
+    CORE --> LA[Live Activity]
     CORE -.-> MC[Mac widgets / app]
     CORE -.-> INT[App Intents / controls]
 ```
@@ -75,3 +75,7 @@ Each widget timeline entry carries a `TimelineEntryRelevance`: score 100 on week
 ## App Intents and controls
 
 `Shared/NextTrainIntents.swift` holds `NextTrainIntent` (answers with the next train, live if online) and `ToggleDirectionIntent`. `Shared/NextTrainShortcuts.swift` registers them as App Shortcuts and is compiled only into the apps, not the widget extensions. To use the Action button on an Apple Watch Ultra or iPhone, open Settings > Action Button and pick the "Next train" shortcut. Free-account limitation: the intents run in whichever process invokes them, so a direction switch made from a control does not reach the app until App Groups exist (see Direction rule above).
+
+## Live Activity
+
+`Shared/TrainActivity.swift` defines `TrainActivityAttributes` and `TrainTracker` (iOS only). Long-press a departure in the iPhone app and choose "Track this train"; the app updates the activity each time it refreshes and ends it after the train leaves. Updates are local, so they only arrive while the app runs (push updates need a paid account and a server). Live Activities mirror to a paired Apple Watch's Smart Stack automatically on watchOS 11+.

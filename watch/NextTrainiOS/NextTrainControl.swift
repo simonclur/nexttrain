@@ -20,6 +20,7 @@ struct NextTrainControl: ControlWidget {
 struct NextTrainWidgets: WidgetBundle {
     var body: some Widget {
         NextTrainWidget()
+        TrainLiveActivity()
         if #available(iOS 18.0, *) { NextTrainControl() }
     }
 }

@@ -8,6 +8,7 @@ import NextTrainCore
 final class DepartureModel: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var snapshot: Snapshot?
     @Published var live = false
+    @Published var updatedAt = Date.distantPast
     @Published var error: String?
     private(set) var rt: [String: TripRealtime] = [:]
 
@@ -34,6 +35,7 @@ final class DepartureModel: NSObject, ObservableObject, CLLocationManagerDelegat
             live = !rt.isEmpty
             if live { snapshot = try tt.resolvedSnapshot(config: AppConfig.commute, store: store, location: location, rt: rt) }
             error = nil
+            updatedAt = Date()
         } catch { self.error = "\(error)" }
     }
 
