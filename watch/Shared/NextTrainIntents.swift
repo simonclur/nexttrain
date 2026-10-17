@@ -6,7 +6,7 @@ private func currentSnapshot(live: Bool) async throws -> Snapshot {
     var cfg = AppConfig.commute
     cfg.pastMinutes = 0; cfg.maxFuture = 8; cfg.futureHours = 6; cfg.candidateStations = 2
     let rt = live ? await RealtimeClient().fetch() : [:]
-    return try tt.resolvedSnapshot(config: cfg, rt: rt)
+    return try tt.resolvedSnapshot(config: cfg, store: AppConfig.directionStore, rt: rt)
 }
 
 /// "Next train": answers in Siri / Shortcuts and can be bound to the Action button.
@@ -30,7 +30,7 @@ struct ToggleDirectionIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         let current = try await currentSnapshot(live: false).primary
-        DirectionStore().setOverride(current.other)
+        AppConfig.directionStore.setOverride(current.other)
         return .result()
     }
 }

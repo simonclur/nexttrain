@@ -83,3 +83,13 @@ Each widget timeline entry carries a `TimelineEntryRelevance`: score 100 on week
 ## Native Mac app: parity with the Python app
 
 The Swift Mac app (`watch/NextTrainMac`) shows the next time in the menu bar and a popover with six departures, a direction switch and refresh. It is not yet a replacement for `desktop/`. Missing: sound alerts, selected-train alerts, launch at login, a settings window for stations (they come from `LocalConfig.swift`), and Developer ID signing/notarisation (needs a paid account). Retire the Python app only when these exist.
+
+## Upgrading to App Groups (paid account)
+
+All direction state goes through `AppConfig.directionStore` (`watch/Shared/AppConfig.swift`). On a free account it is per-process `UserDefaults`. With a paid Apple Developer account:
+
+1. In Xcode, for every target (watch app + widget, iPhone app + widget, Mac app + widget) add the **App Groups** capability with one group id, e.g. `group.com.yourname.nexttrain`.
+2. Set `AppConfig.appGroup` to that id.
+3. Rebuild. The app, complications, widgets, controls and intents now share the manual override and last location fix, so a switch made anywhere shows up everywhere.
+
+Not done yet (still per-process even with the group): sharing the downloaded timetable DB through the group container, and Live Activity push updates.

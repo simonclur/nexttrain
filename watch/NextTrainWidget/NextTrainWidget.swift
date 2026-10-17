@@ -50,7 +50,7 @@ struct Provider: TimelineProvider {
         // Last known fix, available only if the user allowed location for the widget; otherwise time of day decides.
         let fix = CLLocationManager().location?.coordinate
         let snap: Snapshot
-        do { snap = try tt.resolvedSnapshot(config: cfg, location: fix.map { ($0.latitude, $0.longitude) }, rt: rt) } catch { return fail("Err: \(error)") }
+        do { snap = try tt.resolvedSnapshot(config: cfg, store: AppConfig.directionStore, location: fix.map { ($0.latitude, $0.longitude) }, rt: rt) } catch { return fail("Err: \(error)") }
         return TimelineBuilder.entries(from: snap).map(TrainEntry.init)
     }
 }

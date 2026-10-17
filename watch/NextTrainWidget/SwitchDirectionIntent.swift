@@ -11,7 +11,7 @@ struct SwitchDirectionIntent: AppIntent {
     init(target: Direction) { self.target = target.rawValue }
 
     func perform() async throws -> some IntentResult {
-        DirectionStore().setOverride(Direction(rawValue: target))
+        AppConfig.directionStore.setOverride(Direction(rawValue: target))
         return .result()
     }
 }

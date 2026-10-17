@@ -13,7 +13,7 @@ final class DepartureModel: NSObject, ObservableObject, CLLocationManagerDelegat
     private(set) var rt: [String: TripRealtime] = [:]
 
     private let realtime = RealtimeClient()
-    private let store = DirectionStore()
+    private let store = AppConfig.directionStore
     private let manager = CLLocationManager()
     private var location: (lat: Double, lon: Double)?
     private(set) var timetable: Timetable? = TimetableStore.open()
