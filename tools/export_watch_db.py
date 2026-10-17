@@ -1,10 +1,11 @@
 """Build a compact timetable DB for the watch app: trips that call at either commute station (so journeys with one change can be found).
 
 Same schema as rail.db, so the Swift NextTrainCore package reads it unchanged.
-Usage: .venv/bin/python export_watch_db.py [output.db]
+Usage: .venv/bin/python tools/export_watch_db.py [output.db]
 """
 import os, sqlite3, sys
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "desktop"))  # shares core/paths with the desktop app
 import core
 from paths import DB, DATA
 

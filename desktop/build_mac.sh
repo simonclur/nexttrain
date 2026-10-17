@@ -1,8 +1,8 @@
 #!/bin/bash
 # Builds dist/NextTrain.dmg (macOS). Run from the project folder: ./build_mac.sh
 set -euo pipefail
-cd "$(dirname "$0")"
-PY=.venv/bin/python
+cd "$(dirname "$0")"   # run from desktop/
+PY=../.venv/bin/python   # repo-root venv
 $PY -m pip install -q py2app tzdata -r requirements.txt
 rm -rf build dist
 $PY setup.py py2app

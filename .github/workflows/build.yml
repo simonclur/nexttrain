@@ -12,11 +12,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
-      - run: pip install -r requirements.txt pyinstaller
+      - run: pip install -r desktop/requirements.txt pyinstaller
       - run: >
           pyinstaller --noconfirm --windowed --name NextTrain
-          --add-data "config.example.json;." --hidden-import build_data
-          --collect-all tzdata app.py
+          --paths desktop --add-data "desktop/config.example.json;." --hidden-import build_data
+          --collect-all tzdata desktop/app.py
       - run: Compress-Archive -Path dist/NextTrain -DestinationPath NextTrain-windows.zip
       - uses: actions/upload-artifact@v4
         with: { name: NextTrain-windows, path: NextTrain-windows.zip }
@@ -28,6 +28,6 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: python -m venv .venv
-      - run: ./build_mac.sh
+      - run: ./desktop/build_mac.sh
       - uses: actions/upload-artifact@v4
-        with: { name: NextTrain-mac, path: dist/NextTrain.dmg }
+        with: { name: NextTrain-mac, path: desktop/dist/NextTrain.dmg }

@@ -1,9 +1,10 @@
 """Compress the rail timetable DB (raw deflate, readable by Apple's Compression framework) for publishing.
 
-Usage: python publish_timetable.py [out.z]   (run build_data.py first, or set --build to download and build)
+Usage: python tools/publish_timetable.py [out.z]   (run desktop/build_data.py first, or set --build to download and build)
 """
 import os, sys, zlib
 
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "desktop"))  # shares paths/build_data with the desktop app
 from paths import DB, DATA
 
 
