@@ -45,6 +45,8 @@ targets:
       path: NextTrainWidget/Info.plist
       properties:
         CFBundleDisplayName: NextTrain
+        NSWidgetWantsLocation: true
+        NSLocationWhenInUseUsageDescription: Finds the nearest station.
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     settings:

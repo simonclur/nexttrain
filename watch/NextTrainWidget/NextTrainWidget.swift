@@ -1,5 +1,7 @@
 import WidgetKit
 import SwiftUI
+import CoreLocation
+import AppIntents
 import NextTrainCore
 
 struct TrainEntry: TimelineEntry {
@@ -7,6 +9,7 @@ struct TrainEntry: TimelineEntry {
     let route: String
     let trains: [Departure]
     var note: String? = nil
+    var direction: Direction? = nil
 }
 
 struct Provider: TimelineProvider {
@@ -34,14 +37,16 @@ struct Provider: TimelineProvider {
         // Small query window keeps memory and time within the extension limits.
         var cfg = AppConfig.commute
         cfg.pastMinutes = 0; cfg.maxFuture = 8; cfg.futureHours = 6; cfg.candidateStations = 2
+        // Last known fix, available only if the user allowed location for the widget; otherwise time of day decides.
+        let fix = CLLocationManager().location?.coordinate
         let snap: Snapshot
-        do { snap = try tt.snapshot(config: cfg, rt: rt) } catch { return fail("Err: \(error)") }
+        do { snap = try tt.resolvedSnapshot(config: cfg, location: fix.map { ($0.latitude, $0.longitude) }, rt: rt) } catch { return fail("Err: \(error)") }
         guard let r = snap.routes[snap.primary] else { return fail("No route") }
         let upcoming = r.trains.filter { !$0.departed }
         let route = "\(r.origin) → \(r.destination)"
         let times = [Date.now] + upcoming.prefix(5).map(\.time)
         return times.map { t in
-            TrainEntry(date: t, route: route, trains: Array(upcoming.filter { $0.time >= t }.prefix(3)))
+            TrainEntry(date: t, route: route, trains: Array(upcoming.filter { $0.time >= t }.prefix(3)), direction: snap.primary)
         }
     }
 }
@@ -54,16 +59,29 @@ struct WidgetView: View {
         Format.clock(d.time) + (d.delayMin != 0 ? String(format: " %+dm", d.delayMin) : "")
     }
 
+    @ViewBuilder private var routeHeader: some View {
+        let text = Text(entry.route).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        if let d = entry.direction {
+            Button(intent: SwitchDirectionIntent(target: d.other)) { text }.buttonStyle(.plain)
+        } else { text }
+    }
+
     var body: some View {
         switch family {
         case .accessoryInline:
             Text(entry.trains.first.map { "\(label($0)) \($0.headsign)" } ?? "No trains")
+        case .accessoryCircular:
+            VStack(spacing: 0) {
+                Text(entry.trains.first.map { Format.clock($0.time) } ?? "--").font(.headline)
+                Text(entry.trains.first.map { Format.relative($0.time, to: entry.date) } ?? "").font(.caption2)
+            }
+            .minimumScaleFactor(0.6)
         case .accessoryCorner:
             Text(entry.trains.first.map { Format.clock($0.time) } ?? "--")
                 .widgetLabel(entry.trains.first?.headsign ?? "No trains")
         default:
             VStack(alignment: .leading, spacing: 1) {
-                Text(entry.route).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                routeHeader
                 if entry.trains.isEmpty { Text(entry.note ?? "No trains").font(.headline).lineLimit(2) }
                 ForEach(entry.trains) { d in
                     HStack {
@@ -85,6 +103,6 @@ struct NextTrainWidget: Widget {
         }
         .configurationDisplayName("Next train")
         .description("Next departures, offline from the timetable and live when online.")
-        .supportedFamilies([.accessoryRectangular, .accessoryInline, .accessoryCorner])
+        .supportedFamilies([.accessoryRectangular, .accessoryInline, .accessoryCorner, .accessoryCircular])
     }
 }

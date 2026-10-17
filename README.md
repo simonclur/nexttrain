@@ -24,6 +24,7 @@ flowchart LR
 | [docs/architecture.md](docs/architecture.md) | **start here** – system overview, data model, Python ⇄ Swift mapping |
 | [docs/development.md](docs/development.md) | setting up a machine, conventions, tests, personal config |
 | [docs/desktop-app.md](docs/desktop-app.md) | macOS/Windows app design, config, build, gotchas |
+| [docs/surfaces.md](docs/surfaces.md) | every surface (watch, complications, iPhone, Mac...), the shared direction rule, status |
 | [docs/watch-app.md](docs/watch-app.md) | watchOS app and complication, Apple-platform primer, deploy to a watch |
 | [docs/pipeline-and-ci.md](docs/pipeline-and-ci.md) | data sources, timetable pipeline, GitHub Actions (installers, weekly data, watch CI), releases |
 | [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) | original requirements and decision history |

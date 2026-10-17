@@ -16,7 +16,17 @@ struct DepartureListView: View {
                             }
                         }
                     }
-                    Text(model.live ? "Live" : "Timetable (offline)").font(.footnote).foregroundStyle(.secondary)
+                    if let snap = model.snapshot {
+                        Button {
+                            Task { await model.setDirection(snap.primary.other) }
+                        } label: {
+                            Label("Switch to \(snap.primary.other == .work ? "work" : "home")", systemImage: "arrow.left.arrow.right")
+                        }
+                        if snap.source == .manual {
+                            Button("Back to automatic") { Task { await model.setDirection(nil) } }
+                        }
+                    }
+                    Text(footer).font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("NextTrain")
@@ -24,6 +34,16 @@ struct DepartureListView: View {
         }
         .task { await model.refresh() }
         .refreshable { await model.refresh() }
+    }
+
+    private var footer: String {
+        let status = model.live ? "Live" : "Timetable (offline)"
+        switch model.snapshot?.source {
+        case .manual: return "\(status) · set by you"
+        case .location: return "\(status) · by location"
+        case .timeOfDay: return "\(status) · by time of day"
+        default: return status
+        }
     }
 
     private func row(_ d: Departure, now: Date) -> some View {

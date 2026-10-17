@@ -337,6 +337,12 @@ def snapshot(cfg=None, selected_label=None, where="auto"):
     far = {l: haversine(lat, lon, d[2], d[3]) for l, d in dests.items()}
     # by location: the direction whose destination is further away is the one I'm about to travel
     primary = max(far, key=far.get)
+    if src == "fallback":
+        # no real position: same rule as the watch (before noon -> work, afterwards -> home)
+        primary = "work" if datetime.now(TZ).hour < 12 else "home"
+        lat, lon = dests["home" if primary == "work" else "work"][2:4]
+        stations = nearest_stations(db, lat, lon, cfg.get("candidate_stations", 3))
+        far = {l: haversine(lat, lon, d[2], d[3]) for l, d in dests.items()}
     # a selected train overrides, unless I'm already at its destination
     if selected_label and far[selected_label] > 1.0:
         primary = selected_label

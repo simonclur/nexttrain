@@ -124,4 +124,80 @@ final class NextTrainCoreTests: XCTestCase {
         XCTAssertEqual(js.map { Format.clock($0.arrive) }, ["14:59", "15:29", "15:59"])
         XCTAssertEqual(js.first?.via, "Northgate")
     }
+
+    // MARK: direction rule (no data needed)
+
+    private func at(_ hour: Int, minute: Int = 0) -> Date {
+        var c = DateComponents(); c.year = 2026; c.month = 10; c.day = 21; c.hour = hour; c.minute = minute
+        c.timeZone = Brisbane.tz
+        return Brisbane.calendar.date(from: c)!
+    }
+    private let homePos = (lat: -27.33, lon: 153.07), workPos = (lat: -27.47, lon: 153.02)
+
+    func testDirectionFallsBackToTimeOfDay() {
+        let r1 = DirectionResolver.resolve(now: at(7), home: homePos, work: workPos)
+        XCTAssertEqual(r1, DirectionResolution(direction: .work, source: .timeOfDay))
+        let r2 = DirectionResolver.resolve(now: at(17), home: homePos, work: workPos)
+        XCTAssertEqual(r2, DirectionResolution(direction: .home, source: .timeOfDay))
+    }
+
+    func testFreshLocationBeatsTimeOfDayButStaleDoesNot() {
+        let now = at(17)   // evening would say home
+        let nearHome = LastFix(lat: homePos.lat, lon: homePos.lon, time: now.addingTimeInterval(-60))
+        XCTAssertEqual(DirectionResolver.resolve(now: now, home: homePos, work: workPos, fix: nearHome).direction, .work)
+        let stale = LastFix(lat: homePos.lat, lon: homePos.lon, time: now.addingTimeInterval(-3600))
+        XCTAssertEqual(DirectionResolver.resolve(now: now, home: homePos, work: workPos, fix: stale),
+                       DirectionResolution(direction: .home, source: .timeOfDay))
+    }
+
+    func testManualOverrideWinsUntilItExpires() {
+        let now = at(7)
+        let o = DirectionOverride(direction: .home, expires: now.addingTimeInterval(600))
+        let nearHome = LastFix(lat: homePos.lat, lon: homePos.lon, time: now)
+        XCTAssertEqual(DirectionResolver.resolve(now: now, home: homePos, work: workPos, fix: nearHome, override: o),
+                       DirectionResolution(direction: .home, source: .manual))
+        XCTAssertEqual(DirectionResolver.resolve(now: now.addingTimeInterval(700), home: homePos, work: workPos,
+                                                 override: o).source, .timeOfDay)
+    }
+
+    func testSelectedTrainDecidesUnlessArrived() {
+        let now = at(7)
+        XCTAssertEqual(DirectionResolver.resolve(now: now, home: homePos, work: workPos, selected: .home).source, .selected)
+        let atHome = LastFix(lat: homePos.lat, lon: homePos.lon, time: now)
+        // standing at the selected train's destination: fall through to location (travel away from home = work)
+        let r = DirectionResolver.resolve(now: now, home: homePos, work: workPos, fix: atHome, selected: .home)
+        XCTAssertEqual(r, DirectionResolution(direction: .work, source: .location))
+    }
+
+    func testOverrideExpiresAtFourAmOrThreeHours() {
+        XCTAssertEqual(DirectionResolver.overrideExpiry(from: at(7)), at(10))
+        XCTAssertEqual(DirectionResolver.overrideExpiry(from: at(2)), at(4))
+        XCTAssertEqual(DirectionResolver.overrideExpiry(from: at(23)), at(2).addingTimeInterval(86400))
+    }
+
+    func testStoreRoundTripsFixAndOverride() {
+        let d = UserDefaults(suiteName: "nt.test.\(UUID().uuidString)")!
+        let store = DirectionStore(defaults: d)
+        let now = at(7)
+        store.recordFix(lat: 1, lon: 2, now: now)
+        store.setOverride(.home, now: now)
+        XCTAssertEqual(store.fix, LastFix(lat: 1, lon: 2, time: now))
+        XCTAssertEqual(store.override?.direction, .home)
+        store.setOverride(nil)
+        XCTAssertNil(store.override)
+    }
+
+    /// Widget (no location) and app (fresh location) must agree when the user is where time of day says they are.
+    func testResolvedSnapshotAgreesBetweenAppAndWidget() throws {
+        let (tt, home, work, now) = try fixture()
+        let cfg = CommuteConfig(home: home.name, work: work.name, fallback: (-27.4766, 153.0197))
+        let mk = { UserDefaults(suiteName: "nt.test.\(UUID().uuidString)")! }
+        // morning at the home station
+        let app = try tt.resolvedSnapshot(config: cfg, store: DirectionStore(defaults: mk()),
+                                          location: (home.lat, home.lon), now: now)
+        let widget = try tt.resolvedSnapshot(config: cfg, store: DirectionStore(defaults: mk()), now: now)
+        XCTAssertEqual(app.primary, .work)
+        XCTAssertEqual(widget.primary, app.primary)
+        XCTAssertEqual(widget.routes[.work]?.origin, app.routes[.work]?.origin)
+    }
 }

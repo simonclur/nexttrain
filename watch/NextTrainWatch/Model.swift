@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import WidgetKit
 import NextTrainCore
 
 /// Shows the bundled/downloaded timetable immediately, then overlays live delays when online.
@@ -11,6 +12,7 @@ final class DepartureModel: NSObject, ObservableObject, CLLocationManagerDelegat
     private(set) var rt: [String: TripRealtime] = [:]
 
     private let realtime = RealtimeClient()
+    private let store = DirectionStore()
     private let manager = CLLocationManager()
     private var location: (lat: Double, lon: Double)?
     private(set) var timetable: Timetable? = TimetableStore.open()
@@ -27,12 +29,19 @@ final class DepartureModel: NSObject, ObservableObject, CLLocationManagerDelegat
         if await AppConfig.refreshTimetableIfStaleReturningChange() { timetable = TimetableStore.open() }
         guard let tt = timetable else { error = "watch.db missing"; return }
         do {
-            snapshot = try tt.snapshot(config: AppConfig.commute, location: location)   // offline-capable first paint
+            snapshot = try tt.resolvedSnapshot(config: AppConfig.commute, store: store, location: location)   // offline-capable first paint
             rt = await realtime.fetch()
             live = !rt.isEmpty
-            if live { snapshot = try tt.snapshot(config: AppConfig.commute, location: location, rt: rt) }
+            if live { snapshot = try tt.resolvedSnapshot(config: AppConfig.commute, store: store, location: location, rt: rt) }
             error = nil
         } catch { self.error = "\(error)" }
+    }
+
+    /// Manual direction choice (nil = back to automatic). Lasts until 04:00 or three hours.
+    func setDirection(_ d: Direction?) async {
+        store.setOverride(d)
+        await refresh()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     func stops(for d: Departure) -> [TripStop] { (try? timetable?.tripStops(for: d, rt: rt)) ?? [] }

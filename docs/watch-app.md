@@ -37,7 +37,8 @@ watch/
 │   │   ├── Timetable.swift      SQLite3 reader (stations, calendar, queries)
 │   │   ├── Engine.swift         nextTrains, journeys/transferJourneys, tripStops
 │   │   ├── Realtime.swift       protobuf parser, delay rules, RealtimeClient (20 s cache)
-│   │   ├── Snapshot.swift       snapshot(): both directions, nearest station, primary leg
+│   │   ├── DirectionResolver.swift  shared to-work/to-home rule, LastFix, DirectionStore
+│   │   ├── Snapshot.swift       snapshot() + resolvedSnapshot(): both directions, nearest station, primary leg
 │   │   ├── TimetableStore.swift locate / download / swap the timetable DB
 │   │   └── TimetableSlimmer.swift inflate rail.db.z + keep only trips at your stations
 │   └── Tests/NextTrainCoreTests/
@@ -125,6 +126,18 @@ Rendering is two-phase on purpose: the first paint never waits on the network. D
 The row text reads *"change at Northgate → Shorncliffe"*. `Departure.leg2` carries the second leg for live arrival;
 selection identity is the first leg's `tripId`.
 
+## Direction: app vs complication
+
+Both use `Timetable.resolvedSnapshot`, i.e. the shared rule in [surfaces.md](surfaces.md#one-direction-rule-for-every-surface)
+(manual override > selected train > fresh location > time of day). The app shows *Switch to work/home* and *Back to
+automatic*, plus a footer saying why ("set by you", "by location", "by time of day"). The complication switches
+direction by tapping its route line in the Smart Stack (on a watch face a tap opens the app instead).
+
+Without App Groups (free account) the app and the widget keep **separate** fix and override state, so a manual switch
+in the app does not change the complication; it returns to the automatic answer. This is the one known disagreement.
+It goes away by sharing a `UserDefaults(suiteName:)` once a paid account allows App Groups
+(`DirectionStore(defaults:)` already accepts a suite).
+
 ## The complication
 
 ```mermaid
@@ -138,12 +151,12 @@ flowchart LR
     E --> V["WidgetView<br/>rectangular / inline / corner"]
 ```
 
-- Supported families: `accessoryRectangular`, `accessoryInline`, `accessoryCorner`.
+- Supported families: `accessoryRectangular`, `accessoryInline`, `accessoryCorner`, `accessoryCircular`.
 - **The widget must stay cheap.** Extensions have tight memory/time limits. It does not download the timetable and
   queries a small window. When it cannot produce data it shows the reason ("No timetable DB", "Err: …").
 - Reloads are *requested* every ≤ 15 min, but watchOS may delay them. After adding the complication it can take a few
   seconds to populate.
-- Station set for the widget comes from `LocalConfig`; it uses the config fallback location (no GPS in extensions).
+- Station set for the widget comes from `LocalConfig`. Direction uses the last known location if watchOS grants it to the extension (`NSWidgetWantsLocation`), else time of day.
 
 ## Timetable lifecycle
 

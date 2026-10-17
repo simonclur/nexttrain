@@ -104,7 +104,7 @@ The Windows build is produced by CI ([pipeline-and-ci.md](pipeline-and-ci.md)) a
 
 ## Behaviour details
 
-- **Direction:** the primary leg goes to whichever of home/work is further from you (or the selected train's
+- **Direction:** with no real position (fallback location) the leg follows the same time-of-day rule as the watch (before noon to work, afterwards home); see [surfaces.md](surfaces.md). Otherwise the primary leg goes to whichever of home/work is further from you (or the selected train's
   direction unless you are within 1 km of its destination). The other leg starts where the primary ends.
 - **Reminders:** for a selected train, once per minute from 15 to 10 minutes before departure; an arrival alert when
   the live arrival is ≤ 2 min away; the target is deleted 1 minute after arrival. *Pause* silences everything.

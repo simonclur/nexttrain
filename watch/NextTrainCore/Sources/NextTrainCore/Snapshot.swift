@@ -17,7 +17,7 @@ public struct CommuteConfig: Sendable {
     }
 }
 
-public enum Direction: String, Sendable { case home, work
+public enum Direction: String, Codable, Sendable { case home, work
     public var other: Direction { self == .home ? .work : .home }
 }
 
@@ -31,6 +31,7 @@ public struct Route: Sendable {
 
 public struct Snapshot: Sendable {
     public let primary: Direction
+    public var source: DirectionSource? = nil
     public let routes: [Direction: Route]
 }
 
@@ -38,16 +39,21 @@ extension Timetable {
     /// Port of core.snapshot. `location` nil -> config fallback. `selected` is the direction of a train the user picked.
     public func snapshot(config cfg: CommuteConfig, location: (lat: Double, lon: Double)? = nil,
                          selected: Direction? = nil, where manual: Direction? = nil,
+                         resolution: DirectionResolution? = nil,
                          now: Date = Date(), rt: [String: TripRealtime] = [:]) throws -> Snapshot {
         let dests: [Direction: Station] = [.home: try findStation(cfg.home), .work: try findStation(cfg.work)]
         let loc: (lat: Double, lon: Double)
-        if let m = manual, let d = dests[m] { loc = (d.lat, d.lon) } else { loc = location ?? cfg.fallback }
+        if let r = resolution {
+            // without a trustworthy position, start from the station on the other side of the journey
+            if r.usesLocation, let l = location { loc = l } else { let o = dests[r.direction.other]!; loc = (o.lat, o.lon) }
+        } else if let m = manual, let d = dests[m] { loc = (d.lat, d.lon) } else { loc = location ?? cfg.fallback }
 
         let stations = try nearestStations(lat: loc.lat, lon: loc.lon, count: cfg.candidateStations)
         let far = dests.mapValues { haversineKm(loc.lat, loc.lon, $0.lat, $0.lon) }
         // the destination further away is the direction about to be travelled
         var primary: Direction = far[.home]! >= far[.work]! ? .home : .work
         if let s = selected, far[s]! > 1.0 { primary = s }
+        if let r = resolution { primary = r.direction }
 
         let q = Query(limit: cfg.maxFuture, windowHours: cfg.futureHours, pastMinutes: cfg.pastMinutes)
         let dest = dests[primary]!
@@ -70,6 +76,19 @@ extension Timetable {
         routes[other] = Route(destination: dests[other]!.name, origin: dest.name, distanceKm: nil,
                               trains: try journeys(from: dest.id, to: dests[other]!.id, now: now, rt: rt, query: q),
                               assumed: true)
-        return Snapshot(primary: primary, routes: routes)
+        return Snapshot(primary: primary, source: resolution?.source, routes: routes)
+    }
+}
+
+extension Timetable {
+    /// What every surface should call: records a fresh fix, resolves the direction with the shared rule, then builds the snapshot.
+    public func resolvedSnapshot(config cfg: CommuteConfig, store: DirectionStore = DirectionStore(),
+                                 location: (lat: Double, lon: Double)? = nil, selected: Direction? = nil,
+                                 now: Date = Date(), rt: [String: TripRealtime] = [:]) throws -> Snapshot {
+        if let l = location { store.recordFix(lat: l.lat, lon: l.lon, now: now) }
+        let home = try findStation(cfg.home), work = try findStation(cfg.work)
+        let res = store.resolve(home: (home.lat, home.lon), work: (work.lat, work.lon), now: now, selected: selected)
+        return try snapshot(config: cfg, location: location ?? store.fix.map { ($0.lat, $0.lon) },
+                            resolution: res, now: now, rt: rt)
     }
 }
