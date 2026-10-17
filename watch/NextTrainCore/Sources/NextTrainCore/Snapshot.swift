@@ -45,7 +45,7 @@ extension Timetable {
         let loc: (lat: Double, lon: Double)
         if let r = resolution {
             // without a trustworthy position, start from the station on the other side of the journey
-            if r.usesLocation, let l = location { loc = l } else { let o = dests[r.direction.other]!; loc = (o.lat, o.lon) }
+            if let l = location { loc = l } else { let o = dests[r.direction.other]!; loc = (o.lat, o.lon) }
         } else if let m = manual, let d = dests[m] { loc = (d.lat, d.lon) } else { loc = location ?? cfg.fallback }
 
         let stations = try nearestStations(lat: loc.lat, lon: loc.lon, count: cfg.candidateStations)
@@ -88,7 +88,7 @@ extension Timetable {
         if let l = location { store.recordFix(lat: l.lat, lon: l.lon, now: now) }
         let home = try findStation(cfg.home), work = try findStation(cfg.work)
         let res = store.resolve(home: (home.lat, home.lon), work: (work.lat, work.lon), now: now, selected: selected)
-        return try snapshot(config: cfg, location: location ?? store.fix.map { ($0.lat, $0.lon) },
+        return try snapshot(config: cfg, location: location ?? store.freshFix(now: now).map { ($0.lat, $0.lon) },
                             resolution: res, now: now, rt: rt)
     }
 }

@@ -7,7 +7,7 @@ public enum TimetableStore {
     }
 
     /// Bump when the slimmed DB contents change; older downloaded copies are discarded.
-    static let formatVersion = 2
+    static let formatVersion = 3
     static var versionURL: URL { downloadedURL.appendingPathExtension("v\(formatVersion)") }
 
     static func discardStaleDownload() {

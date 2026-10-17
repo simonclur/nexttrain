@@ -4,6 +4,7 @@ import NextTrainUI
 
 /// iPhone app: same engine and direction rule as the watch, on a bigger canvas.
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = DepartureModel()
 
     var body: some View {
@@ -62,6 +63,7 @@ struct ContentView: View {
             }
         }
         .task { await model.refresh() }
+        .onChange(of: scenePhase) { _, p in if p == .active { Task { await model.refresh() } } }
         .onChange(of: model.updatedAt) { _, _ in
             Task { await TrainTracker.update(from: model.snapshot?.routes.values.flatMap(\.trains) ?? []) }
         }

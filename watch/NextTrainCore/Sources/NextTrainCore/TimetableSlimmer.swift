@@ -16,14 +16,13 @@ enum TimetableSlimmer {
     }
 
     static func slim(full: URL, stationNames: [String], to dst: URL) throws {
-        let ids = try Timetable(path: full.path).findStations(stationNames).map(\.id)
+        _ = try Timetable(path: full.path).findStations(stationNames)   // fail early on an unknown station
         var db: OpaquePointer?
         guard sqlite3_open_v2(dst.path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nil) == SQLITE_OK else {
             throw NTError.database("cannot create \(dst.path)")
         }
         defer { sqlite3_close(db) }
         func q(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "''") + "'" }
-        let list = ids.map(q).joined(separator: ",")
         let sql = """
             ATTACH DATABASE \(q(full.path)) AS src;
             CREATE TABLE stations(id TEXT PRIMARY KEY, name TEXT, lat REAL, lon REAL);
@@ -31,8 +30,7 @@ enum TimetableSlimmer {
             CREATE TABLE st(trip_id TEXT, seq INT, station TEXT, stop_id TEXT, platform TEXT, dep INT);
             CREATE TABLE calendar(service_id TEXT, dow TEXT, start TEXT, end TEXT);
             CREATE TABLE calendar_dates(service_id TEXT, date TEXT, type INT);
-            CREATE TEMP TABLE keep AS SELECT trip_id FROM src.st WHERE station IN (\(list))
-                GROUP BY trip_id;
+            CREATE TEMP TABLE keep AS SELECT trip_id FROM src.trips;
             INSERT INTO st SELECT * FROM src.st WHERE trip_id IN (SELECT trip_id FROM keep);
             INSERT INTO trips SELECT * FROM src.trips WHERE trip_id IN (SELECT trip_id FROM keep);
             INSERT INTO stations SELECT * FROM src.stations WHERE id IN (SELECT station FROM st);

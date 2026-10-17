@@ -46,7 +46,7 @@ enum Brisbane {
     }
 }
 
-func haversineKm(_ lat1: Double, _ lon1: Double, _ lat2: Double, _ lon2: Double) -> Double {
+public func haversineKm(_ lat1: Double, _ lon1: Double, _ lat2: Double, _ lon2: Double) -> Double {
     let p = Double.pi / 180
     let a = pow(sin((lat2 - lat1) * p / 2), 2) +
         cos(lat1 * p) * cos(lat2 * p) * pow(sin((lon2 - lon1) * p / 2), 2)

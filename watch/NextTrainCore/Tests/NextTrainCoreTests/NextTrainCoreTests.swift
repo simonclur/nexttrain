@@ -201,6 +201,19 @@ final class NextTrainCoreTests: XCTestCase {
         XCTAssertEqual(widget.routes[.work]?.origin, app.routes[.work]?.origin)
     }
 
+    /// Away from both commute stations, the boarding station follows you, whatever decided the direction.
+    func testBoardingStationFollowsLocationWhenAwayFromHomeAndWork() throws {
+        let (tt, home, work, now) = try fixture()
+        let cfg = CommuteConfig(home: home.name, work: work.name, fallback: (-27.4766, 153.0197))
+        guard let other = try tt.stations().first(where: { $0.id != home.id && $0.id != work.id }) else { throw XCTSkip("one station") }
+        let store = DirectionStore(defaults: UserDefaults(suiteName: "nt.test.\(UUID().uuidString)")!)
+        store.setOverride(.work, now: now)
+        let snap = try tt.resolvedSnapshot(config: cfg, store: store, location: (other.lat, other.lon), now: now)
+        let near = try tt.nearestStations(lat: other.lat, lon: other.lon, count: cfg.candidateStations).map(\.0.name)
+        let origin = try XCTUnwrap(snap.routes[snap.primary]?.origin)
+        XCTAssertTrue(near.contains(origin), "\(origin) not near \(other.name)")
+    }
+
     func testTimelineHasOneEntryPerDepartureAndAdvances() throws {
         let (tt, home, work, now) = try fixture()
         let cfg = CommuteConfig(home: home.name, work: work.name, fallback: (-27.4766, 153.0197))

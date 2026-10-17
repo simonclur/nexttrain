@@ -3,6 +3,7 @@ import NextTrainCore
 import NextTrainUI
 
 struct DepartureListView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model = DepartureModel()
 
     var body: some View {
@@ -45,6 +46,7 @@ struct DepartureListView: View {
             .navigationDestination(for: Departure.self) { TripDetailView(model: model, departure: $0) }
         }
         .task { await model.refresh() }
+        .onChange(of: scenePhase) { _, p in if p == .active { Task { await model.refresh() } } }
         .refreshable { await model.refresh() }
     }
 

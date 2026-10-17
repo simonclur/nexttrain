@@ -170,7 +170,7 @@ flowchart TD
     CI["CI (weekly)<br/>GTFS -> rail.db -> deflate"] --> REL[("Release 'timetable'<br/>rail.db.z ~5 MB")]
     DEV["make watch-data<br/>tools/export_watch_db.py"] --> BUN[("watch/NextTrainWatch/watch.db<br/>~17 MB bundled at build")]
     REL -->|"app, if Documents copy older than 7 days"| DL["download + inflate (full rail.db)"]
-    DL --> SL["TimetableSlimmer: keep trips calling at<br/>EITHER commute station"]
+    DL --> SL["TimetableSlimmer: keep every rail trip<br/>(validates the stations exist)"]
     SL --> DOC[("Documents/watch.db + marker watch.db.v2")]
     DOC -->|wins| OPEN{{"TimetableStore.open()"}}
     BUN -->|fallback| OPEN
@@ -180,7 +180,7 @@ flowchart TD
 - `formatVersion` in `TimetableStore.swift` is bumped whenever the slim DB's *contents* change. A downloaded copy
   without the matching marker file is deleted on launch. **Bump it if you change `TimetableSlimmer`** or old copies
   on devices will shadow the new bundled DB.
-- Trips calling at *either* station are kept (not both) so that one-change journeys can be found.
+- Every rail trip is kept (about 30 MB) so the nearest station works anywhere on the network, including other lines. The app refreshes on each activation, waiting up to 4 s for a fresh location; a location fix younger than 30 min picks the boarding station whatever decided the direction.
 
 ## Setup
 

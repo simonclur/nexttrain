@@ -69,6 +69,11 @@ public struct DirectionStore: @unchecked Sendable {
     public var fix: LastFix? { get { read("nt.fix") } nonmutating set { write("nt.fix", newValue) } }
     public var override: DirectionOverride? { get { read("nt.override") } nonmutating set { write("nt.override", newValue) } }
 
+    /// The stored fix, or nil once it is older than `DirectionResolver.fixMaxAge`.
+    public func freshFix(now: Date = Date()) -> LastFix? {
+        fix.flatMap { now.timeIntervalSince($0.time) <= DirectionResolver.fixMaxAge ? $0 : nil }
+    }
+
     public func recordFix(lat: Double, lon: Double, now: Date = Date()) { fix = LastFix(lat: lat, lon: lon, time: now) }
 
     /// nil clears the override.

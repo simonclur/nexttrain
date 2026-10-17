@@ -21,6 +21,7 @@ final class DepartureModel: NSObject, ObservableObject, CLLocationManagerDelegat
     private var scheduleKey = ""
     private let manager = CLLocationManager()
     private var location: (lat: Double, lon: Double)?
+    private var fixWaiter: CheckedContinuation<Void, Never>?
     private(set) var timetable: Timetable? = TimetableStore.open()
 
     override init() {
@@ -35,7 +36,7 @@ final class DepartureModel: NSObject, ObservableObject, CLLocationManagerDelegat
     }
 
     func refresh() async {
-        manager.requestLocation()
+        await requestFix()
         if await AppConfig.refreshTimetableIfStaleReturningChange() { timetable = TimetableStore.open() }
         guard let tt = timetable else { error = "watch.db missing"; return }
         do {
@@ -83,10 +84,27 @@ final class DepartureModel: NSObject, ObservableObject, CLLocationManagerDelegat
 
     func stops(for d: Departure) -> [TripStop] { (try? timetable?.tripStops(for: d, rt: rt)) ?? [] }
 
-    nonisolated func locationManager(_ m: CLLocationManager, didUpdateLocations locs: [CLLocation]) {
-        guard let c = locs.last?.coordinate else { return }
-        Task { @MainActor in self.location = (c.latitude, c.longitude) }
+    /// Asks for a fresh fix and waits briefly, so the first snapshot uses where you are now rather than the last known place.
+    private func requestFix() async {
+        manager.requestLocation()
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            fixWaiter?.resume()
+            fixWaiter = c
+            Task { try? await Task.sleep(for: .seconds(4)); self.finishFixWait() }
+        }
     }
 
-    nonisolated func locationManager(_ m: CLLocationManager, didFailWithError error: Error) {}
+    private func finishFixWait() { fixWaiter?.resume(); fixWaiter = nil }
+
+    nonisolated func locationManager(_ m: CLLocationManager, didUpdateLocations locs: [CLLocation]) {
+        guard let c = locs.last?.coordinate else { return }
+        Task { @MainActor in
+            self.location = (c.latitude, c.longitude)
+            self.finishFixWait()
+        }
+    }
+
+    nonisolated func locationManager(_ m: CLLocationManager, didFailWithError error: Error) {
+        Task { @MainActor in self.finishFixWait() }
+    }
 }

@@ -1,4 +1,4 @@
-"""Build a compact timetable DB for the watch app: trips that call at either commute station (so journeys with one change can be found).
+"""Build the timetable DB bundled with the watch/iPhone/Mac apps: every rail trip, so the nearest station works anywhere on the network.
 
 Same schema as rail.db, so the Swift NextTrainCore package reads it unchanged.
 Usage: .venv/bin/python tools/export_watch_db.py [output.db]
@@ -14,15 +14,14 @@ def main(out=None):
     out = out or os.path.join(DATA, "watch.db")
     cfg = core.load_config()
     src = sqlite3.connect(DB)
-    ids = [core.find_station(src, cfg[k]["station"])[0] for k in ("home", "work")]
     if os.path.exists(out):
         os.remove(out)
     src.execute("ATTACH DATABASE ? AS w", (out,))
     for (sql,) in src.execute("SELECT sql FROM main.sqlite_master WHERE sql IS NOT NULL").fetchall():
         src.execute(sql.replace("CREATE TABLE ", "CREATE TABLE w.", 1)
                     if sql.startswith("CREATE TABLE") else sql.replace("INDEX ", "INDEX w.", 1))
-    src.execute("""CREATE TEMP TABLE keep AS SELECT trip_id FROM st WHERE station IN (?, ?)
-                   GROUP BY trip_id""", ids)
+    # every trip, so the nearest station is covered wherever you are (not just near home/work)
+    src.execute("CREATE TEMP TABLE keep AS SELECT trip_id FROM trips")
     src.execute("INSERT INTO w.st SELECT * FROM st WHERE trip_id IN (SELECT trip_id FROM keep)")
     src.execute("INSERT INTO w.trips SELECT * FROM trips WHERE trip_id IN (SELECT trip_id FROM keep)")
     src.execute("INSERT INTO w.stations SELECT * FROM stations WHERE id IN (SELECT station FROM w.st)")
