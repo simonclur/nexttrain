@@ -11,7 +11,7 @@ enum TimetableSlimmer {
         guard FileManager.default.createFile(atPath: dst.path, contents: nil) else { throw NTError.database("create") }
         let out = try FileHandle(forWritingTo: dst)
         defer { try? out.close() }
-        var filter = try InputFilter(.decompress, using: .zlib) { try input.read(upToCount: $0) }
+        let filter = try InputFilter(.decompress, using: .zlib) { try input.read(upToCount: $0) }
         while let chunk = try filter.readData(ofLength: 1 << 16) { try out.write(contentsOf: chunk) }
     }
 
