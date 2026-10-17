@@ -47,11 +47,12 @@ watch/
 │   └── Tests/NextTrainCoreTests/
 ├── NextTrainWatch/              the app target (SwiftUI)
 │   ├── NextTrainWatchApp.swift  @main entry
-│   ├── Model.swift              DepartureModel: location, refresh, live overlay
 │   ├── DepartureListView.swift  list + TripDetailView
 │   ├── Info.plist
 │   └── watch.db                 bundled timetable (generated, git-ignored)
-└── NextTrainWidget/             the complication target (WidgetKit)
+├── Shared/                      compiled into every app/widget target: AppConfig, LocalConfig, Model.swift (DepartureModel)
+├── NextTrainiOS/                iPhone app (ContentView) + Info plists; its widget target reuses NextTrainWidget/ sources
+└── NextTrainWidget/             the complication / widget target (WidgetKit; also built for iOS as NextTrainiOSWidget)
     ├── NextTrainWidget.swift    Provider (timeline) + views
     └── Info.plist
 ```

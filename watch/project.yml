@@ -57,3 +57,52 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.simonclur.nexttrain.watch.widget
         GENERATE_INFOPLIST_FILE: NO
+  NextTrainiOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [NextTrainiOS, Shared, NextTrainWatch/watch.db]
+    dependencies:
+      - package: NextTrainCore
+      - package: NextTrainCore
+        product: NextTrainUI
+      - target: NextTrainiOSWidget
+    info:
+      path: NextTrainiOS/Info.plist
+      properties:
+        CFBundleDisplayName: NextTrain
+        NSLocationWhenInUseUsageDescription: Finds the nearest station.
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.simonclur.nexttrain.ios
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1"
+  NextTrainiOSWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: NextTrainWidget
+        excludes: ["Info*.plist"]
+      - path: Shared
+      - path: NextTrainWatch/watch.db
+    dependencies:
+      - package: NextTrainCore
+      - package: NextTrainCore
+        product: NextTrainUI
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    info:
+      path: NextTrainiOS/WidgetInfo.plist
+      properties:
+        CFBundleDisplayName: NextTrain
+        NSWidgetWantsLocation: true
+        NSLocationWhenInUseUsageDescription: Finds the nearest station.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.simonclur.nexttrain.ios.widget
+        GENERATE_INFOPLIST_FILE: NO

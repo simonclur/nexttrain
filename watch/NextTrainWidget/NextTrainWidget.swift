@@ -63,7 +63,9 @@ struct WidgetView: View {
         switch family {
         case .accessoryInline: InlineGlance(entry.display)
         case .accessoryCircular: CircularGlance(entry.display)
+        #if os(watchOS)
         case .accessoryCorner: CornerGlance(entry.display)
+        #endif
         default:
             CompactTrainsView(entry: entry.display) {
                 if let d = entry.display.direction {
@@ -84,6 +86,10 @@ struct NextTrainWidget: Widget {
         }
         .configurationDisplayName("Next train")
         .description("Next departures, offline from the timetable and live when online.")
+        #if os(watchOS)
         .supportedFamilies([.accessoryRectangular, .accessoryInline, .accessoryCorner, .accessoryCircular])
+        #else
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular, .accessoryInline, .accessoryCircular])
+        #endif
     }
 }

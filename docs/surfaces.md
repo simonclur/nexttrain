@@ -46,9 +46,9 @@ extension read it (`NSWidgetWantsLocation`); this must be verified on a real dev
 | `accessoryCorner` | watch face | always | tap | time + headsign label | ✅ |
 | `accessoryCircular` | watch face | always | tap | next departure time + "in Nm" | ✅ |
 | Smart Stack relevance (commute times) | watchOS | promoted near 06:30 / 16:30 | tap | rectangular view | 🟡 |
-| iPhone app | iOS 17+ | user opens it | full list, detail, direction switch | same engine | 🟡 |
-| Home Screen widgets (S/M/L), StandBy | iOS 17+ | on a page / when docked | `Button(intent:)` | next train(s) | 🟡 |
-| Lock Screen widgets | iOS 17+ | lock screen | tap | circular / rectangular / inline | 🟡 |
+| iPhone app (`NextTrainiOS`) | iOS 17+ | user opens it | list of 8, trip detail, direction switch, pull to refresh | same engine | ✅ simulator |
+| Home Screen widgets small/medium (`NextTrainiOSWidget`) | iOS 17+ | on a page | tap opens app | next train(s) | ✅ builds; large + StandBy 🟡 |
+| Lock Screen widgets | iOS 17+ | lock screen | tap | circular / rectangular / inline | ✅ builds |
 | Live Activity, Dynamic Island | iOS 16.2+, watch mirror | while tracking one train | tap | countdown, delay, platform | 🟡 |
 | Control Centre control, Action button | iOS 18, Watch Ultra | on demand | App Intent | switch direction / next train | 🟡 |
 | Mac widgets | macOS 14+ | desktop, Notification Centre | `Button(intent:)` | next trains | 🟡 |
@@ -58,7 +58,7 @@ extension read it (`NSWidgetWantsLocation`); this must be verified on a real dev
 flowchart LR
     CORE["NextTrainCore<br/>DirectionResolver, Timetable,<br/>Realtime, Snapshot"] --> W[Watch app]
     CORE --> WC["Watch widgets<br/>(4 accessory families)"]
-    CORE -.-> IP[iPhone app + widgets]
+    CORE --> IP[iPhone app + widgets]
     CORE -.-> LA[Live Activity]
     CORE -.-> MC[Mac widgets / app]
     CORE -.-> INT[App Intents / controls]

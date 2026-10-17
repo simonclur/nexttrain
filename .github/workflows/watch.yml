@@ -49,3 +49,6 @@ jobs:
 
       - name: Build the watch app for the simulator
         run: make watch-build DEST='generic/platform=watchOS Simulator'
+
+      - name: Build the iPhone app and widget for the simulator
+        run: make ios-build

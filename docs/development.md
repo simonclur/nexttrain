@@ -73,6 +73,7 @@ The journey engine exists twice. When you change it:
 | Area | Command |
 |---|---|
 | Swift package | `make watch-test` (set `NEXTTRAIN_DB` etc. for DB-backed tests, see [watch-app.md](watch-app.md#tests)) |
+| iPhone app + widget compile | `make ios-build` (also run in CI) |
 | Watch app compiles | `make watch-build` (CI runs this and the tests: `.github/workflows/watch.yml`) |
 | Desktop app | run it (`make desktop-run`) and watch the log; there is no automated Python test suite yet |
 | Installer build | `make desktop-mac` |
