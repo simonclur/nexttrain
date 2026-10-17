@@ -82,7 +82,7 @@ Each widget timeline entry carries a `TimelineEntryRelevance`: score 100 on week
 
 ## Native Mac app: parity with the Python app
 
-The Swift Mac app (`watch/NextTrainMac`) shows the next time in the menu bar and a popover with six departures, a direction switch and refresh. It is not yet a replacement for `desktop/`. Selected-train highlight and alerts now work like the Python app (see below). Missing: launch at login, the Python-style scrolling list, a settings window for stations (they come from `LocalConfig.swift`), and Developer ID signing/notarisation (needs a paid account). Retire the Python app only when these exist.
+The Swift Mac app (`watch/NextTrainMac`) shows the next train time and minutes (e.g. `07:42 (5m)`, or the selected train) in the menu bar from launch, and a popover with six departures, a direction switch and refresh. It is not yet a replacement for `desktop/`. Selected-train highlight and alerts now work like the Python app (see below). Missing: launch at login, the Python-style scrolling list, a settings window for stations (they come from `LocalConfig.swift`), and Developer ID signing/notarisation (needs a paid account). Retire the Python app only when these exist.
 
 ## Upgrading to App Groups (paid account)
 

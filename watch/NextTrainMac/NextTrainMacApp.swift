@@ -12,17 +12,30 @@ struct NextTrainMacApp: App {
         MenuBarExtra {
             MenuContent(model: model)
         } label: {
-            Label(title, systemImage: "tram.fill")
+            // An HStack, not a Label: the menu bar drops a Label's text and keeps only its icon.
+            TimelineView(.periodic(from: .now, by: 30)) { ctx in
+                HStack(spacing: 4) {
+                    Image(systemName: "tram.fill")
+                    Text(title(now: ctx.date))
+                }
+            }
+            // The label exists from launch, so this keeps the time current without opening the popover.
+            .task {
+                while !Task.isCancelled {
+                    await model.refresh()
+                    try? await Task.sleep(for: .seconds(60))
+                }
+            }
         }
         .menuBarExtraStyle(.window)
     }
 
-    private var title: String {
+    private func title(now: Date) -> String {
         if let t = model.tracked.values.min(by: { $0.depart < $1.depart }) {
-            return (model.alertsActive ? "" : "⏸ ") + Format.trackedTitle(t, now: Date())
+            return (model.alertsActive ? "" : "⏸ ") + Format.trackedTitle(t, now: now)
         }
         guard let s = model.snapshot, let d = s.routes[s.primary]?.trains.first(where: { !$0.departed }) else { return "NextTrain" }
-        return Format.clock(d.time) + TimelineBuilder.delayText(d)
+        return Format.clock(d.time) + TimelineBuilder.delayText(d) + " (\(max(0, Int(d.time.timeIntervalSince(now) / 60)))m)"
     }
 }
 
@@ -65,12 +78,5 @@ struct MenuContent: View {
         }
         .padding()
         .frame(width: 340)
-        .task { await model.refresh() }
-        .task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
-                await model.refresh()
-            }
-        }
     }
 }
