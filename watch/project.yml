@@ -38,6 +38,7 @@ targets:
     sources:
       - path: NextTrainWidget
       - path: Shared
+        excludes: [NextTrainShortcuts.swift]
       - path: NextTrainWatch/watch.db
     dependencies:
       - package: NextTrainCore
@@ -61,7 +62,11 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
-    sources: [NextTrainiOS, Shared, NextTrainWatch/watch.db]
+    sources:
+      - path: NextTrainiOS
+        excludes: [NextTrainControl.swift]
+      - path: Shared
+      - path: NextTrainWatch/watch.db
     dependencies:
       - package: NextTrainCore
       - package: NextTrainCore
@@ -84,9 +89,11 @@ targets:
     platform: iOS
     deploymentTarget: "17.0"
     sources:
+      - path: NextTrainiOS/NextTrainControl.swift
       - path: NextTrainWidget
-        excludes: ["Info*.plist"]
+        excludes: ["Info*.plist", "WatchBundle.swift"]
       - path: Shared
+        excludes: [NextTrainShortcuts.swift]
       - path: NextTrainWatch/watch.db
     dependencies:
       - package: NextTrainCore

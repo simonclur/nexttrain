@@ -50,7 +50,8 @@ extension read it (`NSWidgetWantsLocation`); this must be verified on a real dev
 | Home Screen widgets small/medium (`NextTrainiOSWidget`) | iOS 17+ | on a page | tap opens app | next train(s) | ✅ builds; large + StandBy 🟡 |
 | Lock Screen widgets | iOS 17+ | lock screen | tap | circular / rectangular / inline | ✅ builds |
 | Live Activity, Dynamic Island | iOS 16.2+, watch mirror | while tracking one train | tap | countdown, delay, platform | 🟡 |
-| Control Centre control, Action button | iOS 18, Watch Ultra | on demand | App Intent | switch direction / next train | 🟡 |
+| Control Centre control (`NextTrainControl`) | iOS 18 | on demand, also Lock Screen / Action button slot | tap runs `ToggleDirectionIntent` | switch direction | ✅ builds |
+| Siri / Shortcuts / Action button | iOS 17+, watchOS 10+ | on demand | `NextTrainIntent` ("Next train in NextTrain"), `ToggleDirectionIntent` | spoken next train / switch | ✅ builds, untested on device |
 | Mac widgets | macOS 14+ | desktop, Notification Centre | `Button(intent:)` | next trains | 🟡 |
 | Mac app | macOS 13+ (`MenuBarExtra`) | always in the menu bar | full | parity with the Python app, then replaces it | 🟡 |
 
@@ -70,3 +71,7 @@ list = 3-4 trains, detail = stops) and map it to families, rather than one desig
 ## Smart Stack relevance
 
 Each widget timeline entry carries a `TimelineEntryRelevance`: score 100 on weekdays 06:00-09:00 and 16:00-18:30 (Brisbane time), 10 otherwise, so watchOS promotes the widget in the Smart Stack around commute time. Taps open the app through a `nexttrain://home`, `work` or `auto` URL (the app does not yet act on the direction in the URL).
+
+## App Intents and controls
+
+`Shared/NextTrainIntents.swift` holds `NextTrainIntent` (answers with the next train, live if online) and `ToggleDirectionIntent`. `Shared/NextTrainShortcuts.swift` registers them as App Shortcuts and is compiled only into the apps, not the widget extensions. To use the Action button on an Apple Watch Ultra or iPhone, open Settings > Action Button and pick the "Next train" shortcut. Free-account limitation: the intents run in whichever process invokes them, so a direction switch made from a control does not reach the app until App Groups exist (see Direction rule above).

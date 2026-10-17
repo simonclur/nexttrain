@@ -76,7 +76,6 @@ struct WidgetView: View {
     }
 }
 
-@main
 struct NextTrainWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "NextTrainWidget", provider: Provider()) { entry in
