@@ -42,16 +42,19 @@ Owner: simonclur. Targets the South-East Queensland (TransLink) network. A free 
 | Complication uses only the bundled DB | Widget extensions have tight memory/time limits; downloading + inflating the timetable there got it killed. |
 | Repository history rewritten once (Oct 2026) | To remove a work email and personal station names before making the repo public. |
 | `config.json` → `config.example.json` | Personal stations must not be in a public repo. |
+| One direction rule (override > selected train > fresh location > time of day) in `DirectionResolver` | The watch app and complication disagreed because only the app had GPS. Every surface now calls the same resolver. See [surfaces.md](surfaces.md). |
+| One Swift package, two libraries (`NextTrainCore`, `NextTrainUI`) shared by watch, iPhone and Mac targets | Build views once per information level (glance/list/detail), not per surface. |
+| App Groups deferred (`AppConfig.appGroup = nil`) | Needs a paid account; per-process direction state is the free-account fallback. |
 | Repo split into `desktop/`, `watch/`, `tools/` | Separate the Python desktop app, the Apple code and the shared data tools for a new developer. |
 
 ## 4. Status and next steps
-Done: everything in §1, the watch app and complication, one-change journeys, weekly timetable release.
+Done: everything in §1, the watch app and complication, one-change journeys, weekly timetable release, the shared direction rule, circular complication, Smart Stack relevance, iPhone app + widgets, Control Centre control + Siri shortcuts, Live Activity, native Mac menu-bar app + widget (all in the simulator/build only; see the status column in [surfaces.md](surfaces.md)). Not yet verified on real devices: widget location, Live Activity, Control, Mac widget.
 Open ideas (see also [development.md](development.md#known-limitations--ideas)):
 1. Verify on real Windows and on a second Mac (Gatekeeper, Location prompt).
 2. Start-at-login (launchd plist on macOS, Startup shortcut on Windows).
 3. Auto location mode heuristics (time of day) while GPS is unreliable; Windows location via WinRT.
 4. Developer ID signing + notarisation for friction-free sharing.
-5. Watch: tune widget refresh; iPhone companion; a Python test suite for the desktop core.
+5. Watch: tune widget refresh; Mac app parity with Python (sound alerts, launch at login, settings UI); a Python test suite for the desktop core.
 6. Untested in live UI over a full ride: arrival/reminder notifications, scroll/click edge cases.
 
 ## 5. Conventions

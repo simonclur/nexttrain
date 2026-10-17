@@ -6,7 +6,7 @@ no API key.
 | | App | Folder |
 |---|---|---|
 | 🖥️ | macOS menu-bar / Windows tray app with reminders and arrival alerts (Python) | [`desktop/`](desktop) |
-| ⌚ | Apple Watch app + complication, works offline from the timetable, live delays when online (Swift) | [`watch/`](watch) |
+| ⌚📱 | Apple Watch app + complications, iPhone app + widgets + Live Activity, native Mac menu-bar app + widget; offline from the timetable, live delays when online (Swift) | [`watch/`](watch) |
 | 🔧 | Timetable build/publish tools used by CI and the watch app (Python) | [`tools/`](tools) |
 
 ```mermaid
